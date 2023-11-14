@@ -5,10 +5,12 @@ class Player(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,obstacle_sprites):
 		super().__init__(groups)
 		self.image = pygame.transform.scale(pygame.image.load('graphics/player/_Warrior/WalkLeft/1.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha()
+		self.image = pygame.transform.scale(pygame.image.load('graphics/player/_Warrior/WalkLeft/1.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha()
 		self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(0,-26)
 
 		self.direction = pygame.math.Vector2()
+		self.speed = 8
 		self.speed = 8
 
 		self.obstacle_sprites = obstacle_sprites
@@ -103,6 +105,12 @@ class Player(pygame.sprite.Sprite):
 	def update(self):
 		self.input()
 		self.move(self.speed)
+	
+		# Animate only when moving
+		if self.direction.magnitude() != 0:
+			self.animate()
+		else:
+			self.current_frame = 0  # Reset animation frame if not moving
 	
 		# Animate only when moving
 		if self.direction.magnitude() != 0:
