@@ -4,20 +4,23 @@ from settings import *
 from tile import Tile
 from player import Player
 from debug import debug
+import random
 
 class Room:
-    def __init__(self, x, y, width, height):
-        # Initialize the room based on its top-left corner, width, and height
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+	def __init__(self, x, y, width, height):
+		# Initialize the room based on its top-left corner, width, and height
+		self.x = x
+		self.y = y
+		self.width = width
+		self.height = height
 
-    def create_room(self, dungeon_layout):
-        # Fill the defined area of the dungeon map with open space
-        for x in range(self.x, self.x + self.width):
-            for y in range(self.y, self.y + self.height):
-                dungeon_layout[y][x] = ' '
+	def create_room(self, dungeon_layout):
+		# Fill the defined area of the dungeon map with open space
+		for x in range(self.x, self.x + self.width):
+			for y in range(self.y, self.y + self.height):
+	   			if dungeon_layout[y][x] != ' ':  # Avoid overwriting corridors
+           				dungeon_layout[y][x] = ' '
+
 
 class Level:
 	def __init__(self):
@@ -59,13 +62,19 @@ class Level:
 		closest_room = None
 		distance_to_closest = float('inf')
 		for room in self.rooms:
+			if room == new_room:  # Skip if it's the same room
+				continue
 			distance = self.calculate_distance(new_room, room)
 			if distance < distance_to_closest:
 				distance_to_closest = distance
 				closest_room = room
-		self.connect_rooms(new_room, closest_room)
-		self.room_graph[new_room].append(closest_room)
-		self.room_graph[closest_room].append(new_room)
+		if closest_room:
+			self.connect_rooms(new_room, closest_room)
+			print('Room at '+ str(new_room.x), str(new_room.y) + ' connected to room at ' + str(closest_room.x), str(closest_room.y))
+			self.room_graph[new_room].append(closest_room)
+			self.room_graph[closest_room].append(new_room)
+		else:
+			print(f"No other room found to connect with room at ({new_room.x}, {new_room.y})")
 
 	def ensure_all_rooms_connected(self):
 		visited = set()
@@ -85,9 +94,8 @@ class Level:
 			if connected_room not in visited:
 				self.dfs(connected_room, visited)
 	
- 
 	def create_map(self):
-        # Procedural map generation
+		# Procedural map generation
 		self.generate_procedural_map()
 		player_created = False
 		for row_index, row in enumerate(self.dungeon_layout):
@@ -118,7 +126,7 @@ class Level:
 		print(f"Player created at: {(player_x * TILESIZE, player_y * TILESIZE)}")
 
 		# Generate additional rooms and connect them
-		for i in range(1, 10):  # Start from 1 since the first room is already created
+		for i in range(1, 15):  # Start from 1 since the first room is already created
 			room = Room(random.randint(1, MAP_WIDTH - 11), random.randint(1, MAP_HEIGHT - 11), random.randint(5, 10), random.randint(5, 10))
 			if self.add_room(room):
 				self.add_room_to_graph(room)  # Add the room to the graph
@@ -154,26 +162,49 @@ class Level:
 			print("Room is either overlapping with another room or too close to the edge.")
 			return False
 
-
 	def connect_rooms(self, room1, room2):
 		# Find center of rooms
 		x1, y1 = room1.x + room1.width // 2, room1.y + room1.height // 2
 		x2, y2 = room2.x + room2.width // 2, room2.y + room2.height // 2
 
-		# Determine the order of connection (horizontal first or vertical first)
-		# by random choice or some heuristic
+		corridor_width = 3  # Width of the corridor, adjust as needed
+		half_width = corridor_width // 2
+
+		# Horizontal then vertical or vertical then horizontal
 		if random.choice([True, False]):
 			# Horizontal then vertical
 			for x in range(min(x1, x2), max(x1, x2) + 1):
-				self.dungeon_layout[y1][x] = ' '
+				for w in range(-half_width, half_width + 1):
+					if self.is_corridor_space(x, y1 + w, room1, room2, include_room_edge=True):
+						self.dungeon_layout[y1 + w][x] = ' '
 			for y in range(min(y1, y2), max(y1, y2) + 1):
-				self.dungeon_layout[y][x2] = ' '
+				for w in range(-half_width, half_width + 1):
+					if self.is_corridor_space(x2 + w, y, room1, room2, include_room_edge=True):
+						self.dungeon_layout[y][x2 + w] = ' '
 		else:
 			# Vertical then horizontal
 			for y in range(min(y1, y2), max(y1, y2) + 1):
-				self.dungeon_layout[y][x1] = ' '
+				for w in range(-half_width, half_width + 1):
+					if self.is_corridor_space(x1 + w, y, room1, room2, include_room_edge=True):
+						self.dungeon_layout[y][x1 + w] = ' '
 			for x in range(min(x1, x2), max(x1, x2) + 1):
-				self.dungeon_layout[y2][x] = ' '
+				for w in range(-half_width, half_width + 1):
+					if self.is_corridor_space(x, y2 + w, room1, room2, include_room_edge=True):
+						self.dungeon_layout[y2 + w][x] = ' '
+
+	def is_corridor_space(self, x, y, room1, room2, include_room_edge=False):
+		"""
+		Check if the given x, y position is a valid space for a corridor segment.
+		It should not be within the walls of the rooms it is connecting, unless
+		it's at the edge of the room for merging purposes.
+		"""
+		in_room1 = (x >= room1.x and x < room1.x + room1.width and y >= room1.y and y < room1.y + room1.height)
+		in_room2 = (x >= room2.x and x < room2.x + room2.width and y >= room2.y and y < room2.y + room2.height)
+
+		if include_room_edge:
+			return not (in_room1 and in_room2)
+		else:
+			return not (in_room1 or in_room2)
 
 
 
@@ -196,7 +227,7 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.offset = pygame.math.Vector2()
   
 		# create ' '
-		self.floor_surf = pygame.image.load('graphics/tilemap/ground.png').convert()
+		self.floor_surf = pygame.image.load('graphics/tilemap/ground2.png').convert()
 		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
 
 	def custom_draw(self,player):
