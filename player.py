@@ -4,7 +4,7 @@ from settings import *
 class Player(pygame.sprite.Sprite):
 	def __init__(self,pos,groups,obstacle_sprites, create_attack, destroy_attack):
 		super().__init__(groups)
-		self.image = pygame.transform.scale(pygame.image.load('graphics/player/_Warrior/WalkLeft/1.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha()
+		self.image = pygame.transform.scale(pygame.image.load('graphics/player/_Warrior/WalkDown/1.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha()
 		self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(0,-26)
 
@@ -26,7 +26,7 @@ class Player(pygame.sprite.Sprite):
 		}
   
 		self.current_frame = 0
-		self.animation_speed = 0.12 # Adjust as needed
+		self.animation_speed = 0.10 # Adjust as needed
 
 		# Weapon
 		self.create_attack = create_attack
@@ -39,9 +39,9 @@ class Player(pygame.sprite.Sprite):
 		print(self.weapon)
   
 		# Stats
-		self.stats = {'health' : 100, 'energy' : 60, 'attack' : 10, 'magic' : 4, 'speed' : 6}
-		self.health = self.stats['health']
-		self.energy = self.stats['energy']
+		self.stats = {'health' : 100, 'energy' : 60, 'attack' : 10, 'magic' : 4, 'speed' : 4}
+		self.health = self.stats['health'] 
+		self.energy = self.stats['energy'] 
 		self.exp = 123
 		self.speed = self.stats['speed']
 

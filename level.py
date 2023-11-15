@@ -242,7 +242,7 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.offset = pygame.math.Vector2()
   
 		# create ' '
-		self.floor_surf = pygame.image.load('graphics/tilemap/ground2.png').convert()
+		self.floor_surf = pygame.image.load('graphics/tilemap/ground4.jpg').convert()
 		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
 
 	def custom_draw(self,player):

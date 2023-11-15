@@ -2,6 +2,9 @@ import pygame, sys
 from settings import *
 from level import Level
 import os
+import cProfile
+
+
 
 class Game:
 	def __init__(self):
@@ -51,4 +54,5 @@ class Game:
 
 if __name__ == '__main__':
 	game = Game()
-	game.run()
+ 
+	cProfile.run('game.run()')
