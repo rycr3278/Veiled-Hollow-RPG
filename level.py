@@ -5,6 +5,8 @@ from tile import Tile
 from player import Player
 from debug import debug
 import random
+from weapon import Weapon
+from ui import UI
 
 class Room:
 	def __init__(self, x, y, width, height):
@@ -38,6 +40,9 @@ class Level:
 		# list of rooms
 		self.rooms = []
 
+		# attack sprites
+		self.current_attack = None
+  
 		# graph of rooms
 		self.room_graph = {}
   
@@ -46,6 +51,9 @@ class Level:
   
   		# sprite setup
 		self.create_map()
+  
+		# UI
+		self.ui = UI()
 
 	def add_room_to_graph(self, room):
 		self.room_graph[room] = []
@@ -105,7 +113,7 @@ class Level:
 				if col == 'x':
 					Tile((x, y), [self.visible_sprites, self.obstacle_sprites])
 				elif col == 'p' and not player_created:
-					self.player = Player((x, y), [self.visible_sprites], self.obstacle_sprites)
+					self.player = Player((x, y), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
 					print(f"Player created at: {(x, y)}")  # Debug print
 					player_created = True
 
@@ -114,6 +122,14 @@ class Level:
 		else:
 			print(f"Player object: {self.player}")  # Debug print
 
+	def create_attack(self):
+		self.current_attack = Weapon(self.player, [self.visible_sprites])
+		
+	def destroy_attack(self):
+		if self.current_attack:
+			self.current_attack.kill()
+		self.current_attack = None
+	
 	def generate_procedural_map(self):
 		# Always create the first room and place the player inside it
 		first_room = Room(random.randint(1, MAP_WIDTH - 11), random.randint(1, MAP_HEIGHT - 11), random.randint(5, 10), random.randint(5, 10))
@@ -122,7 +138,7 @@ class Level:
 		player_x = first_room.x + first_room.width // 2
 		player_y = first_room.y + first_room.height // 2
 		self.dungeon_layout[player_y][player_x] = 'p'
-		self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites)
+		self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
 		print(f"Player created at: {(player_x * TILESIZE, player_y * TILESIZE)}")
 
 		# Generate additional rooms and connect them
@@ -137,7 +153,6 @@ class Level:
 		self.ensure_all_rooms_connected()
 		
 		print('map generated')
-
 
 	def add_room(self, room):
 		# Check if room overlaps with existing rooms or is too close to the edges.
@@ -206,15 +221,15 @@ class Level:
 		else:
 			return not (in_room1 or in_room2)
 
-
-
 	def run(self):
 		# update and draw the game
 		if self.player is None:
 			raise ValueError("Player object has not been initialized before running the level.")
+		
 		self.visible_sprites.custom_draw(self.player)
+		
 		self.visible_sprites.update()
-
+		
 
 class YSortCameraGroup(pygame.sprite.Group):
 	def __init__(self):

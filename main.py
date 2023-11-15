@@ -1,6 +1,7 @@
 import pygame, sys
 from settings import *
 from level import Level
+import os
 
 class Game:
 	def __init__(self):
@@ -12,8 +13,7 @@ class Game:
 		self.clock = pygame.time.Clock()
 		self.vignette = self.create_vignette_surface((WIDTH, HEIGHT))
 		self.level = Level()
-	
-	
+
 	def create_vignette_surface(self, screen_size, intensity=400):
 		vignette_surface = pygame.Surface(screen_size).convert_alpha()
 		width, height = screen_size
@@ -28,8 +28,8 @@ class Game:
 
 		return vignette_surface
 
-	
 	def run(self):
+		print(os.getcwd())
 		while True:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -40,7 +40,7 @@ class Game:
 			
 			# Draw the vignette over the screen
 			self.screen.blit(self.vignette, (0, 0))
-			
+			self.level.ui.display(self.level.player)
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
