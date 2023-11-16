@@ -5,7 +5,7 @@ import random
 WIDTH    = 1280	
 HEIGHT   = 720
 FPS      = 60
-TILESIZE = 64
+TILESIZE = 32
 SAFETY_MARGIN = 2
 
 # ui
@@ -32,8 +32,8 @@ MAP_WIDTH = 70
 MAP_HEIGHT = 70
 
 # Define Player setup
-PLAYER_WIDTH = 80
-PLAYER_HEIGHT = 80
+PLAYER_WIDTH = 40
+PLAYER_HEIGHT = 40
 
 # weapons
 weapon_data = {

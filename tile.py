@@ -2,30 +2,31 @@ import pygame
 from settings import *
 
 class Tile(pygame.sprite.Sprite):
-    # Class attribute to store preloaded images
-    preloaded_images = []
+    tilesheets = {}
 
     @classmethod
-    def preload_images(cls):
-        tile_images = [
-            'graphics/dungeon/wall/1.png',
-            'graphics/dungeon/wall/2.png',
-            'graphics/dungeon/wall/3.png',
-            'graphics/dungeon/wall/4.png',
-            'graphics/dungeon/wall/5.png',
-            'graphics/dungeon/wall/6.png'
-        ]
-        for img_path in tile_images:
-            image = pygame.transform.scale(pygame.image.load(img_path), (TILESIZE, TILESIZE)).convert_alpha()
-            cls.preloaded_images.append(image)
-            # Also store the flipped version
-            cls.preloaded_images.append(pygame.transform.flip(image, True, False))
+    def load_tilesheet(cls, key, path):
+        tilesheet = pygame.image.load(path).convert_alpha()
+        cls.tilesheets[key] = tilesheet
 
-    def __init__(self, pos, groups):
-        super().__init__(groups)
-        if not Tile.preloaded_images:
-            Tile.preload_images()
-
-        self.image = random.choice(Tile.preloaded_images)
+    def __init__(self, pos, visible_group, obstacle_group, tilesheet_key, tile_coordinates, tile_type, edge_type = None):
+        super().__init__(visible_group)  # Add to visible group
+        tilesheet = Tile.tilesheets[tilesheet_key]
+        x, y = tile_coordinates
+        tile_size = 32  # Assuming each tile is 32x32
+        rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
+        self.image = tilesheet.subsurface(rect)
         self.rect = self.image.get_rect(topleft=pos)
-        self.hitbox = self.rect.inflate(0, -10)
+        
+        self.is_floor = tile_type == 'floor'
+        self.is_wall = tile_type == 'wall'
+        self.edge_type = edge_type
+
+        if self.is_wall:
+            # Only add wall tiles to the obstacle group and set a custom hitbox
+            self.add(obstacle_group)
+            self.hitbox = self.rect.inflate(0, -10)
+        else:
+            # For floor tiles, the hitbox is the same as the rect
+            self.hitbox = self.rect
+

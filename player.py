@@ -7,6 +7,8 @@ class Player(pygame.sprite.Sprite):
 		self.image = pygame.transform.scale(pygame.image.load('graphics/player/_Warrior/WalkDown/1.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha()
 		self.rect = self.image.get_rect(topleft = pos)
 		self.hitbox = self.rect.inflate(0,-26)
+		self.is_floor = False
+		self.is_wall = False
 
 		# movement
 		self.direction = pygame.math.Vector2()

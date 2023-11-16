@@ -47,12 +47,8 @@ class Game:
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
-			
-
-			
-
 
 if __name__ == '__main__':
 	game = Game()
  
-	cProfile.run('game.run()')
+	game.run()

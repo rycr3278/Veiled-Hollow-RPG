@@ -21,10 +21,12 @@ class Room:
 		for x in range(self.x, self.x + self.width):
 			for y in range(self.y, self.y + self.height):
 	   			if dungeon_layout[y][x] != ' ':  # Avoid overwriting corridors
-           				dungeon_layout[y][x] = ' '
+		   				dungeon_layout[y][x] = ' '
 
 
 class Level:
+	corridor_width = 4
+	
 	def __init__(self):
 
 		# get the display surface 
@@ -37,6 +39,10 @@ class Level:
 		self.visible_sprites = YSortCameraGroup()
 		self.obstacle_sprites = pygame.sprite.Group()
 		
+		# Load tilesheets
+		Tile.load_tilesheet('wall', 'graphics/_Crypt/Tilesets/wall-1.png')
+		Tile.load_tilesheet('floor', 'graphics/_Crypt/Tilesets/ground 1 to 2.png')
+  
 		# list of rooms
 		self.rooms = []
 
@@ -77,7 +83,7 @@ class Level:
 				distance_to_closest = distance
 				closest_room = room
 		if closest_room:
-			self.connect_rooms(new_room, closest_room)
+			self.connect_rooms(new_room, closest_room, self.corridor_width)
 			print('Room at '+ str(new_room.x), str(new_room.y) + ' connected to room at ' + str(closest_room.x), str(closest_room.y))
 			self.room_graph[new_room].append(closest_room)
 			self.room_graph[closest_room].append(new_room)
@@ -102,6 +108,34 @@ class Level:
 			if connected_room not in visited:
 				self.dfs(connected_room, visited)
 	
+	def get_tile_type(self, dungeon_layout, row_index, col_index):
+		current_tile = dungeon_layout[row_index][col_index]
+		below_tile = dungeon_layout[row_index + 1][col_index] if row_index + 1 < len(dungeon_layout) else None
+		above_tile = dungeon_layout[row_index - 1][col_index] if row_index + 1 < len(dungeon_layout) else None
+		left_tile = dungeon_layout[row_index][col_index - 1] if col_index + 1 < len(dungeon_layout) else None
+		right_tile = dungeon_layout[row_index][col_index + 1] if col_index + 1 < len(dungeon_layout) else None
+		two_below = dungeon_layout[row_index + 2][col_index] if row_index + 2 < len(dungeon_layout) else None
+		two_above = above_tile = dungeon_layout[row_index - 2][col_index] if row_index + 2 < len(dungeon_layout) else None
+		three_below = dungeon_layout[row_index + 3][col_index] if row_index + 3 < len(dungeon_layout) else None
+  
+		if current_tile == 'x':
+			if below_tile == 'x' and two_below == ' ':
+				# Return coordinates for the specific wall tile at vertical transition
+				return 'wall', (random.randint(0, 5), 9), None
+			elif below_tile == ' ' and not two_below == 'x':
+				return 'wall', (random.randint(0,5), 10), 'bottom'
+			elif above_tile == ' ':
+				return 'wall', (2, 1), 'top'
+			else:
+				# Return coordinates for a regular wall tile
+				return 'wall', (2, 1), None
+		elif current_tile == ' ':
+			# Return coordinates for a floor tile
+			return 'floor', (0, 1), None
+		# Add more conditions as needed for other types of tiles
+
+		return None, None, None  # Default case if no match is found
+ 
 	def create_map(self):
 		# Procedural map generation
 		self.generate_procedural_map()
@@ -110,17 +144,21 @@ class Level:
 			for col_index, col in enumerate(row):
 				x = col_index * TILESIZE
 				y = row_index * TILESIZE
-				if col == 'x':
-					Tile((x, y), [self.visible_sprites, self.obstacle_sprites])
-				elif col == 'p' and not player_created:
+				tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)  # Unpack three values
+
+				if tile_type and tile_coords:
+					obstacle_group = self.obstacle_sprites if tile_type == 'wall' else None
+					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)  # Pass edge_type to Tile
+
+				# Player creation logic
+				if col == 'p' and not player_created:
 					self.player = Player((x, y), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
-					print(f"Player created at: {(x, y)}")  # Debug print
 					player_created = True
 
 		if self.player is None:
-			print("Player was not created!")  # Debug print
+			print("Player was not created!")
 		else:
-			print(f"Player object: {self.player}")  # Debug print
+			print(f"Player object: {self.player}")
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
@@ -132,8 +170,8 @@ class Level:
 	
 	def generate_procedural_map(self):
 		# Always create the first room and place the player inside it
-		first_room = Room(random.randint(1, MAP_WIDTH - 11), random.randint(1, MAP_HEIGHT - 11), random.randint(5, 10), random.randint(5, 10))
-		self.add_room(first_room)
+		first_room = Room(random.randint(1, MAP_WIDTH - 1), random.randint(1, MAP_HEIGHT - 1), random.randint(10, 20), random.randint(10, 20))
+		self.add_room(first_room, self.corridor_width)
 		self.add_room_to_graph(first_room)  # Add the first room to the graph
 		player_x = first_room.x + first_room.width // 2
 		player_y = first_room.y + first_room.height // 2
@@ -142,9 +180,9 @@ class Level:
 		print(f"Player created at: {(player_x * TILESIZE, player_y * TILESIZE)}")
 
 		# Generate additional rooms and connect them
-		for i in range(1, 15):  # Start from 1 since the first room is already created
-			room = Room(random.randint(1, MAP_WIDTH - 11), random.randint(1, MAP_HEIGHT - 11), random.randint(5, 10), random.randint(5, 10))
-			if self.add_room(room):
+		for i in range(1, 25):  # Start from 1 since the first room is already created
+			room = Room(random.randint(1, MAP_WIDTH - 10), random.randint(1, MAP_HEIGHT - 10), random.randint(8, 20), random.randint(8, 20))
+			if self.add_room(room, self.corridor_width):
 				self.add_room_to_graph(room)  # Add the room to the graph
 				self.connect_to_closest_room(room)  # Connect the room to the closest one
 		for row in self.dungeon_layout:
@@ -154,12 +192,16 @@ class Level:
 		
 		print('map generated')
 
-	def add_room(self, room):
+	def add_room(self, room, corridor_width):
 		# Check if room overlaps with existing rooms or is too close to the edges.
 		overlap = False
+
+		corridor_and_wall_space = corridor_width + 1  # Add 1 for wall thickness
 		for r in self.rooms:
-			if (room.x < r.x + r.width and room.x + room.width > r.x and
-				room.y < r.y + r.height and room.y + room.height > r.y):
+			if (room.x < r.x + r.width + corridor_and_wall_space and
+				room.x + room.width + corridor_and_wall_space > r.x and
+				room.y < r.y + r.height + corridor_and_wall_space and
+				room.y + room.height + corridor_and_wall_space > r.y):
 				overlap = True
 				break
 
@@ -177,12 +219,11 @@ class Level:
 			print("Room is either overlapping with another room or too close to the edge.")
 			return False
 
-	def connect_rooms(self, room1, room2):
+	def connect_rooms(self, room1, room2, corridor_width):
 		# Find center of rooms
 		x1, y1 = room1.x + room1.width // 2, room1.y + room1.height // 2
 		x2, y2 = room2.x + room2.width // 2, room2.y + room2.height // 2
 
-		corridor_width = 3  # Width of the corridor, adjust as needed
 		half_width = corridor_width // 2
 
 		# Horizontal then vertical or vertical then horizontal
@@ -213,8 +254,8 @@ class Level:
 		It should not be within the walls of the rooms it is connecting, unless
 		it's at the edge of the room for merging purposes.
 		"""
-		in_room1 = (x >= room1.x and x < room1.x + room1.width and y >= room1.y and y < room1.y + room1.height)
-		in_room2 = (x >= room2.x and x < room2.x + room2.width and y >= room2.y and y < room2.y + room2.height)
+		in_room1 = (x >= room1.x + 1 and x < room1.x + room1.width + 1 and y >= room1.y + 1 and y < room1.y + room1.height + 1 )
+		in_room2 = (x >= room2.x + 1 and x < room2.x + room2.width + 1 and y >= room2.y + 1 and y < room2.y + room2.height + 1 )
 
 		if include_room_edge:
 			return not (in_room1 and in_room2)
@@ -240,10 +281,6 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.half_width = self.display_surface.get_size()[0] // 2
 		self.half_height = self.display_surface.get_size()[1] // 2
 		self.offset = pygame.math.Vector2()
-  
-		# create ' '
-		self.floor_surf = pygame.image.load('graphics/tilemap/ground4.jpg').convert()
-		self.floor_rect = self.floor_surf.get_rect(topleft = (0,0))
 
 	def custom_draw(self,player):
 
@@ -251,11 +288,20 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.offset.x = player.rect.centerx - self.half_width
 		self.offset.y = player.rect.centery - self.half_height
   
-		# draw ' '
-		floor_offset_pos = self.floor_rect.topleft - self.offset
-		self.display_surface.blit(self.floor_surf, floor_offset_pos)
+		# Draw all non-player and non-top-edge wall tiles
+		for sprite in self.sprites():
+			if sprite != player and not (hasattr(sprite, 'edge_type') and sprite.edge_type == 'top'):
+				offset_pos = sprite.rect.topleft - self.offset
+				self.display_surface.blit(sprite.image, offset_pos)
 
-		# for sprite in self.sprites():
-		for sprite in sorted(self.sprites(),key = lambda sprite: sprite.rect.centery):
-			offset_pos = sprite.rect.topleft - self.offset
-			self.display_surface.blit(sprite.image,offset_pos)
+		# Draw player
+		offset_pos = player.rect.topleft - self.offset
+		self.display_surface.blit(player.image, offset_pos)
+
+		# Draw top-edge wall tiles last
+		for sprite in self.sprites():
+			if hasattr(sprite, 'edge_type') and sprite.edge_type == 'top':
+				offset_pos = sprite.rect.topleft - self.offset
+				self.display_surface.blit(sprite.image, offset_pos)
+
+		
