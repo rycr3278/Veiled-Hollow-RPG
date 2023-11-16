@@ -4,8 +4,6 @@ from level import Level
 import os
 import cProfile
 
-
-
 class Game:
 	def __init__(self):
 		  

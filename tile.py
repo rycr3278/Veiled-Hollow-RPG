@@ -20,6 +20,7 @@ class Tile(pygame.sprite.Sprite):
         
         self.is_floor = tile_type == 'floor'
         self.is_wall = tile_type == 'wall'
+        self.is_overlay = tile_type == 'wall'
         self.edge_type = edge_type
 
         if self.is_wall:

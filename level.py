@@ -42,6 +42,7 @@ class Level:
 		# Load tilesheets
 		Tile.load_tilesheet('wall', 'graphics/_Crypt/Tilesets/wall-1.png')
 		Tile.load_tilesheet('floor', 'graphics/_Crypt/Tilesets/ground 1 to 2.png')
+		Tile.load_tilesheet('overlay', 'graphics/_Crypt/Tilesets/wall-1.png')
   
 		# list of rooms
 		self.rooms = []
@@ -115,8 +116,9 @@ class Level:
 		left_tile = dungeon_layout[row_index][col_index - 1] if col_index + 1 < len(dungeon_layout) else None
 		right_tile = dungeon_layout[row_index][col_index + 1] if col_index + 1 < len(dungeon_layout) else None
 		two_below = dungeon_layout[row_index + 2][col_index] if row_index + 2 < len(dungeon_layout) else None
-		two_above = above_tile = dungeon_layout[row_index - 2][col_index] if row_index + 2 < len(dungeon_layout) else None
+		two_above = dungeon_layout[row_index - 2][col_index] if row_index + 2 < len(dungeon_layout) else None
 		three_below = dungeon_layout[row_index + 3][col_index] if row_index + 3 < len(dungeon_layout) else None
+		up_right = dungeon_layout[row_index + 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
   
 		if current_tile == 'x':
 			if below_tile == 'x' and two_below == ' ':
@@ -124,6 +126,9 @@ class Level:
 				return 'wall', (random.randint(0, 5), 9), None
 			elif below_tile == ' ' and not two_below == 'x':
 				return 'wall', (random.randint(0,5), 10), 'bottom'
+			elif right_tile == ' ' and left_tile == 'x' and above_tile == 'x' and below_tile == ' ': # bottom right corner
+				print('right corner made')
+				return 'wall', (3, 4), None
 			elif above_tile == ' ':
 				return 'wall', (2, 1), 'top'
 			else:
@@ -135,7 +140,24 @@ class Level:
 		# Add more conditions as needed for other types of tiles
 
 		return None, None, None  # Default case if no match is found
- 
+	
+	def get_overlay_tile(self, dungeon_layout, row_index, col_index):
+		# Determine if an overlay tile should be placed here
+		current_tile = dungeon_layout[row_index][col_index]
+		below_tile = dungeon_layout[row_index + 1][col_index] if row_index + 1 < len(dungeon_layout) else None
+
+		if current_tile == ' ' and below_tile == 'x':
+			# Return tile_type, coordinates, edge type, and is_obstacle flag
+			return 'overlay', (2, 0), 'top', True
+		return None
+
+
+
+	def get_corner_tile(self, dungeon_layout, x, y):
+		# Determine if a corner tile should be placed here
+		# Return the tile type and coordinates if a corner tile is needed, else None
+		pass  # Implement the logic here
+	
 	def create_map(self):
 		# Procedural map generation
 		self.generate_procedural_map()
@@ -144,11 +166,22 @@ class Level:
 			for col_index, col in enumerate(row):
 				x = col_index * TILESIZE
 				y = row_index * TILESIZE
-				tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)  # Unpack three values
 
-				if tile_type and tile_coords:
-					obstacle_group = self.obstacle_sprites if tile_type == 'wall' else None
-					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)  # Pass edge_type to Tile
+				# Handle base tile
+				tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)
+				if tile_type:
+					obstacle_group = self.obstacle_sprites if tile_type == 'wall' or tile_type == 'overlay' else None
+					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
+
+				# Handle overlay tile
+				overlay_tile = self.get_overlay_tile(self.dungeon_layout, row_index, col_index)
+				if overlay_tile:
+					tile_type, tile_coords, edge_type, is_obstacle = overlay_tile
+					obstacle_group = self.obstacle_sprites if is_obstacle else None
+					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
+				'''if corner_tile:
+					# Make sure corner_tile contains all the required arguments for Tile constructor
+					Tile((x, y), self.visible_sprites, None, *corner_tile)'''
 
 				# Player creation logic
 				if col == 'p' and not player_created:
@@ -160,6 +193,7 @@ class Level:
 		else:
 			print(f"Player object: {self.player}")
 
+
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
 		
@@ -168,16 +202,39 @@ class Level:
 			self.current_attack.kill()
 		self.current_attack = None
 	
+	def find_valid_player_position(self, room):
+		# Adjust the start and end positions of the loop to ensure it's within room boundaries and dungeon layout
+		start_x = max(room.x + 1, 1)  # Ensure it's greater than 0
+		end_x = min(room.x + room.width - 1, MAP_WIDTH - 1)  # Ensure it's less than MAP_WIDTH
+		start_y = max(room.y + 1, 1)  # Ensure it's greater than 0
+		end_y = min(room.y + room.height - 1, MAP_HEIGHT - 1)  # Ensure it's less than MAP_HEIGHT
+
+		spawn_x = (end_x + start_x) // 2
+		spawn_y = (end_y + start_y) // 2
+		
+		return spawn_x, spawn_y
+  
+		'''for y in range(start_y, end_y):
+			for x in range(start_x, end_x):
+				# Check if the tile is open space and not at the edge
+				if self.dungeon_layout[y][x] == ' ':
+					return x, y
+
+		return None, None  # Return None if no valid position is found'''
+
 	def generate_procedural_map(self):
 		# Always create the first room and place the player inside it
 		first_room = Room(random.randint(1, MAP_WIDTH - 1), random.randint(1, MAP_HEIGHT - 1), random.randint(10, 20), random.randint(10, 20))
 		self.add_room(first_room, self.corridor_width)
 		self.add_room_to_graph(first_room)  # Add the first room to the graph
-		player_x = first_room.x + first_room.width // 2
-		player_y = first_room.y + first_room.height // 2
-		self.dungeon_layout[player_y][player_x] = 'p'
-		self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
-		print(f"Player created at: {(player_x * TILESIZE, player_y * TILESIZE)}")
+
+		# Find a valid open position within the first room for the player
+		player_x, player_y = self.find_valid_player_position(first_room)
+		if player_x is not None and player_y is not None:
+			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
+			print(f"Player created at: {(player_x, player_y)}")
+		else:
+			print("Failed to place the player in a valid position")
 
 		# Generate additional rooms and connect them
 		for i in range(1, 25):  # Start from 1 since the first room is already created
@@ -189,7 +246,7 @@ class Level:
 			print(''.join(row))
 		# Ensure all rooms are connected
 		self.ensure_all_rooms_connected()
-		
+
 		print('map generated')
 
 	def add_room(self, room, corridor_width):
