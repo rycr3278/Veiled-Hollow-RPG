@@ -43,6 +43,7 @@ class Level:
 		Tile.load_tilesheet('wall', 'graphics/_Crypt/Tilesets/wall-1.png')
 		Tile.load_tilesheet('floor', 'graphics/_Crypt/Tilesets/ground 1 to 2.png')
 		Tile.load_tilesheet('overlay', 'graphics/_Crypt/Tilesets/wall-1.png')
+		Tile.load_tilesheet('corner', 'graphics/_Crypt/Tilesets/wall-1.png')
   
 		# list of rooms
 		self.rooms = []
@@ -145,18 +146,63 @@ class Level:
 		# Determine if an overlay tile should be placed here
 		current_tile = dungeon_layout[row_index][col_index]
 		below_tile = dungeon_layout[row_index + 1][col_index] if row_index + 1 < len(dungeon_layout) else None
+		above_tile = dungeon_layout[row_index - 1][col_index] if row_index - 1 >= 0 else None
+		left_tile = dungeon_layout[row_index][col_index - 1] if col_index - 1 >= 0 else None
+		right_tile = dungeon_layout[row_index][col_index + 1] if col_index + 1 < len(dungeon_layout[row_index]) else None
+		up_right = dungeon_layout[row_index - 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
+		down_left = dungeon_layout[row_index + 1][col_index - 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
+		down_right = dungeon_layout[row_index + 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout[0]) else None
+
 
 		if current_tile == ' ' and below_tile == 'x':
 			# Return tile_type, coordinates, edge type, and is_obstacle flag
 			return 'overlay', (2, 0), 'top', True
+		elif current_tile == ' ' and above_tile == 'x':
+			return 'overlay', (2, 6), 'bottom', True
+		elif current_tile == ' ' and right_tile == 'x':
+			return 'overlay', (0,2), 'bottom', True
+		elif current_tile == ' ' and left_tile == 'x':
+			return 'overlay', (4, 2), 'bottom', True
+
 		return None
 
+	def get_corner_tile(self, dungeon_layout, row_index, col_index):
+		# Determine if an overlay tile should be placed here
+		current_tile = dungeon_layout[row_index][col_index]
+		below_tile = dungeon_layout[row_index + 1][col_index] if row_index + 1 < len(dungeon_layout) else None
+		above_tile = dungeon_layout[row_index - 1][col_index] if row_index - 1 >= 0 else None
+		left_tile = dungeon_layout[row_index][col_index - 1] if col_index - 1 >= 0 else None
+		right_tile = dungeon_layout[row_index][col_index + 1] if col_index + 1 < len(dungeon_layout[row_index]) else None
+		up_right = dungeon_layout[row_index - 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
+		up_left = dungeon_layout[row_index - 1][col_index - 1] if row_index + 1 < len(dungeon_layout) and col_index - 1 < len(dungeon_layout) else None
+		down_left = dungeon_layout[row_index + 1][col_index - 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
+		down_right = dungeon_layout[row_index + 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout[0]) else None
+		two_down_right = dungeon_layout[row_index + 2][col_index + 1] if row_index + 2 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout[0]) else None
+		two_down_left = dungeon_layout[row_index + 2][col_index - 1] if row_index + 2 < len(dungeon_layout) and col_index - 1 < len(dungeon_layout[0]) else None
+		
+		#floor on top
+		if current_tile == ' ' and below_tile == ' ' and right_tile == ' ' and left_tile == ' ' and down_left == 'x':
+			return 'corner', (4, 1), 'top', True
+		elif current_tile == ' ' and below_tile == ' ' and right_tile == ' ' and left_tile == ' ' and down_right == 'x':
+			return 'corner', (0, 1), 'top', True
+		
+		# floor on left and bottom, wall on right
+		elif current_tile == ' ' and above_tile == ' ' and right_tile == ' ' and left_tile == ' ' and up_right == 'x':
+			return 'corner', (0, 5), 'bottom', True
+		elif current_tile == ' ' and above_tile == ' ' and right_tile == 'x' and down_right == ' ':
+			return 'corner', (0, 4), 'bottom', True
+		elif current_tile == ' ' and above_tile == ' ' and right_tile == 'x' and down_right == 'x' and two_down_right == ' ':
+			return 'corner', (0, 3), 'bottom', True
 
+		# floor on right and bottom, wall on left
+		elif current_tile == ' ' and above_tile == ' ' and right_tile == ' ' and left_tile == ' ' and up_left == 'x':
+			return 'corner', (4, 5), 'bottom', True
+		elif current_tile == ' ' and above_tile == ' ' and left_tile == 'x' and down_left == ' ':
+			return 'corner', (4, 4), 'bottom', True
+		elif current_tile == ' ' and above_tile == ' ' and left_tile == 'x' and down_left == 'x' and two_down_left == ' ':
+			return 'corner', (4, 3), 'bottom', True
 
-	def get_corner_tile(self, dungeon_layout, x, y):
-		# Determine if a corner tile should be placed here
-		# Return the tile type and coordinates if a corner tile is needed, else None
-		pass  # Implement the logic here
+		return None
 	
 	def create_map(self):
 		# Procedural map generation
@@ -170,18 +216,24 @@ class Level:
 				# Handle base tile
 				tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)
 				if tile_type:
-					obstacle_group = self.obstacle_sprites if tile_type == 'wall' or tile_type == 'overlay' else None
+					obstacle_group = self.obstacle_sprites if tile_type == 'wall' or tile_type == 'overlay' or tile_type == 'corner' else None
 					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
 
 				# Handle overlay tile
 				overlay_tile = self.get_overlay_tile(self.dungeon_layout, row_index, col_index)
+	
 				if overlay_tile:
 					tile_type, tile_coords, edge_type, is_obstacle = overlay_tile
 					obstacle_group = self.obstacle_sprites if is_obstacle else None
 					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
-				'''if corner_tile:
-					# Make sure corner_tile contains all the required arguments for Tile constructor
-					Tile((x, y), self.visible_sprites, None, *corner_tile)'''
+
+				# Handle corner tile
+				corner_tile = self.get_corner_tile(self.dungeon_layout, row_index, col_index)
+	
+				if corner_tile:
+					tile_type, tile_coords, edge_type, is_obstacle = corner_tile
+					obstacle_group = self.obstacle_sprites if is_obstacle else None
+					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
 
 				# Player creation logic
 				if col == 'p' and not player_created:
@@ -360,5 +412,6 @@ class YSortCameraGroup(pygame.sprite.Group):
 			if hasattr(sprite, 'edge_type') and sprite.edge_type == 'top':
 				offset_pos = sprite.rect.topleft - self.offset
 				self.display_surface.blit(sprite.image, offset_pos)
+
 
 		
