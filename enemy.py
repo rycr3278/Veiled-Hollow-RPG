@@ -48,6 +48,9 @@ class Enemy(Entity):
         self.notice_radius = monster_info['notice_radius']
         self.attack_type = monster_info['attack_type']
         
+        # Player Interaction
+        self.can_attack = True
+        
     def import_graphics(self, name):
         self.animations = {'walk': [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': []}  # Actions
         enemy_type = name.split('/')[0]
@@ -98,7 +101,7 @@ class Enemy(Entity):
     def get_status(self, player):
         distance = self.get_player_distance_direction(player)[0]
         
-        if distance <= self.attack_radius:
+        if distance <= self.attack_radius and self.can_attack:
             self.status = 'attack'
         elif distance <= self.notice_radius:
             self.status = 'move'
