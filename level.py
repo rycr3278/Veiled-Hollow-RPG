@@ -35,6 +35,9 @@ class Level:
 		# Initialize the dungeon map as an instance attribute
 		self.dungeon_layout = [['x' for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
 
+		# Initialize object, enemy, and player layout
+		self.object_layout = [[' ' for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
+
 		# sprite group setup
 		self.visible_sprites = YSortCameraGroup()
 		self.obstacle_sprites = pygame.sprite.Group()
@@ -178,7 +181,8 @@ class Level:
 		down_right = dungeon_layout[row_index + 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout[0]) else None
 		two_down_right = dungeon_layout[row_index + 2][col_index + 1] if row_index + 2 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout[0]) else None
 		two_down_left = dungeon_layout[row_index + 2][col_index - 1] if row_index + 2 < len(dungeon_layout) and col_index - 1 < len(dungeon_layout[0]) else None
-		
+		two_down = dungeon_layout[row_index + 2][col_index] if row_index + 2 < len(dungeon_layout) else None		
+  
 		#floor on top
 		if current_tile == ' ' and below_tile == ' ' and right_tile == ' ' and left_tile == ' ' and down_left == 'x':
 			return 'corner', (4, 1), 'top', True
@@ -192,17 +196,51 @@ class Level:
 			return 'corner', (0, 4), 'bottom', True
 		elif current_tile == ' ' and above_tile == ' ' and right_tile == 'x' and down_right == 'x' and two_down_right == ' ':
 			return 'corner', (0, 3), 'bottom', True
+		elif current_tile == ' ' and below_tile == ' ' and right_tile == 'x' and left_tile == ' ' and down_left == ' ' and above_tile == 'x':
+			return 'corner', (0, 2), 'top', True
+		elif current_tile == 'x' and below_tile == ' ' and right_tile == 'x' and left_tile == 'x' and down_right == 'x' and above_tile == 'x' and down_left == ' ':
+			return 'corner', (0, 2), 'top', True
+		elif current_tile == 'x' and below_tile == 'x' and right_tile == 'x' and left_tile == 'x' and down_right == 'x' and above_tile == 'x' and down_left == 'x' and two_down == ' ' and two_down_left == ' ' and two_down_right == 'x':
+			return 'corner', (1, 3), 'top', True
 
 		# floor on right and bottom, wall on left
 		elif current_tile == ' ' and above_tile == ' ' and right_tile == ' ' and left_tile == ' ' and up_left == 'x':
 			return 'corner', (4, 5), 'bottom', True
 		elif current_tile == ' ' and above_tile == ' ' and left_tile == 'x' and down_left == ' ':
 			return 'corner', (4, 4), 'bottom', True
+		elif current_tile == ' ' and above_tile == 'x' and left_tile == 'x' and down_left == ' ':
+			return 'corner', (4, 4), 'bottom', True
+
 		elif current_tile == ' ' and above_tile == ' ' and left_tile == 'x' and down_left == 'x' and two_down_left == ' ':
 			return 'corner', (4, 3), 'bottom', True
+		elif current_tile == ' ' and below_tile == ' ' and right_tile == ' ' and left_tile == 'x' and down_right == ' ' and above_tile == 'x':
+			return 'corner', (4, 2), 'top', True
+		elif current_tile == 'x' and below_tile == ' ' and left_tile == 'x' and right_tile == 'x' and down_left == 'x' and above_tile == 'x' and down_right == ' ':
+			return 'corner', (4, 2), 'top', True
+		elif current_tile == 'x' and below_tile == 'x' and left_tile == 'x' and right_tile == 'x' and down_left == 'x' and above_tile == 'x' and down_right == 'x' and two_down == ' ' and two_down_right == ' ' and two_down_left == 'x':
+			return 'corner', (3, 3), 'top', True
+
+		# floor on top and left or right
+		if current_tile == ' ' and below_tile == 'x' and right_tile == ' ' and left_tile == 'x' and down_left == 'x':
+			return 'corner', (3, 1), 'top', True
+		if current_tile == ' ' and below_tile == 'x' and right_tile == 'x' and left_tile == ' ' and down_right == 'x':
+			return 'corner', (1, 1), 'top', True
 
 		return None
 	
+	def populate_objects(self):
+		for room in self.rooms:
+			# Place an item in the center of each room
+			center_x, center_y = room.x + room.width // 2, room.y + room.height // 2
+			if self.dungeon_layout[center_y][center_x] == ' ':
+				self.object_layout[center_y][center_x] = 'I'  # 'I' for Item
+
+			# Place enemies randomly in rooms
+			for _ in range(random.randint(1, 3)):  # Random number of enemies
+				enemy_x, enemy_y = random.randint(room.x, room.x + room.width - 1), random.randint(room.y, room.y + room.height - 1)
+				if self.dungeon_layout[enemy_y][enemy_x] == ' ':
+					self.object_layout[enemy_y][enemy_x] = 'E'  # 'E' for Enemy
+ 
 	def create_map(self):
 		# Procedural map generation
 		self.generate_procedural_map()
@@ -236,13 +274,26 @@ class Level:
 
 				# Player creation logic
 				if col == 'p' and not player_created:
-					self.player = Player((x, y), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
+					self.player = Player(
+		 			(x, y), 
+					[self.visible_sprites], 
+			  		self.obstacle_sprites, 
+					self.create_attack, 
+				 	self.destroy_attack,
+				  	self.create_magic)
 					player_created = True
+	 
+				elif col == 'I':
+				# Render an item sprite at this location
+					pass
+				elif col == 'E':
+				# Render an enemy sprite at this location
+			 		pass
 
-		if self.player is None:
-			print("Player was not created!")
-		else:
-			print(f"Player object: {self.player}")
+			if self.player is None:
+				print("Player was not created!")
+			else:
+				print(f"Player object: {self.player}")
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
@@ -252,6 +303,11 @@ class Level:
 			self.current_attack.kill()
 		self.current_attack = None
 	
+	def create_magic(self, style, strength, cost):
+		print(style)
+		print(strength)
+		print(cost)
+
 	def find_valid_player_position(self, room):
 		# Calculate the center of the room
 		center_x = room.x + room.width // 2
@@ -281,7 +337,7 @@ class Level:
 		# Find the center position within the first room for the player
 		player_x, player_y = self.find_valid_player_position(first_room)
 		if player_x is not None and player_y is not None:
-			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
+			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack, self.create_magic)
 			print(f"Player created at: {(player_x, player_y)}")
 		else:
 			print("Failed to place the player in a valid position")
@@ -296,8 +352,12 @@ class Level:
 			print(''.join(row))
 		# Ensure all rooms are connected
 		self.ensure_all_rooms_connected()
-
+		
 		print('map generated')
+
+		self.populate_objects()
+
+		print('objects generated')
 
 	def add_room(self, room, corridor_width):
 		# Check if room overlaps with existing rooms or is too close to the edges.
@@ -331,7 +391,7 @@ class Level:
 		x1, y1 = room1.x + room1.width // 2, room1.y + room1.height // 2
 		x2, y2 = room2.x + room2.width // 2, room2.y + room2.height // 2
 
-		half_width = corridor_width // 2
+		half_width = 3
 
 		# Horizontal then vertical or vertical then horizontal
 		if random.choice([True, False]):

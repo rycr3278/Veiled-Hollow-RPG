@@ -43,3 +43,13 @@ weapon_data = {
     'rapier' : {'cooldown': 50, 'damage' : 8, 'graphic' : 'graphics/weapons/rapier/full.png'},
     'sai' : {'cooldown': 80, 'damage' : 10, 'graphic' : 'graphics/weapons/sai/full.png'},
 }
+
+# magic
+magic_data = {'flame' : {'strength' : 5, 'cost' : 20, 'graphic' : 'graphics/particles/flame/fire.png'},
+              'heal' : {'strength' : 20, 'cost' : 10, 'graphic' : 'graphics/particles/heal/heal.png'}}
+
+# enemy
+monster_data = {'Big Worm 1' : {'health' : 100, 'damage' : 20, 'attack_type' : 'slash', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 2, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 360},
+                'Big Worm 2' : {'health' : 100, 'damage' : 20, 'attack_type' : 'claw', 'attack_sound' : 'audio/attack/claw.wav', 'speed' : 2, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 360}, 
+                'Skeleton' : {'health' : 100, 'damage' : 20, 'attack_type' : 'thunder', 'attack_sound' : 'audio/attack/fireball.wav', 'speed' : 3, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 360}, 
+                'Spider' :  {'health' : 100, 'damage' : 20, 'attack_type' : 'leaf_attack', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 5, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 360}}
