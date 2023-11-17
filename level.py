@@ -245,7 +245,6 @@ class Level:
 		else:
 			print(f"Player object: {self.player}")
 
-
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
 		
@@ -255,32 +254,32 @@ class Level:
 		self.current_attack = None
 	
 	def find_valid_player_position(self, room):
-		# Adjust the start and end positions of the loop to ensure it's within room boundaries and dungeon layout
-		start_x = max(room.x + 1, 1)  # Ensure it's greater than 0
-		end_x = min(room.x + room.width - 1, MAP_WIDTH - 1)  # Ensure it's less than MAP_WIDTH
-		start_y = max(room.y + 1, 1)  # Ensure it's greater than 0
-		end_y = min(room.y + room.height - 1, MAP_HEIGHT - 1)  # Ensure it's less than MAP_HEIGHT
+		# Calculate the center of the room
+		center_x = room.x + room.width // 2
+		center_y = room.y + room.height // 2
 
-		spawn_x = (end_x + start_x) // 2
-		spawn_y = (end_y + start_y) // 2
-		
-		return spawn_x, spawn_y
-  
-		'''for y in range(start_y, end_y):
-			for x in range(start_x, end_x):
-				# Check if the tile is open space and not at the edge
-				if self.dungeon_layout[y][x] == ' ':
-					return x, y
+		# Ensure the center is not out of bounds
+		center_x = max(min(center_x, MAP_WIDTH - 1), 0)
+		center_y = max(min(center_y, MAP_HEIGHT - 1), 0)
 
-		return None, None  # Return None if no valid position is found'''
+		# Check if the center is a wall tile; if so, find the nearest floor tile
+		if self.dungeon_layout[center_y][center_x] == 'x':
+			for y in range(room.y + 1, room.y + room.height - 1):
+				for x in range(room.x + 1, room.x + room.width - 1):
+					if self.dungeon_layout[y][x] == ' ':
+						return x, y
+		else:
+			return center_x, center_y
+
+		return None, None  # Return None if no valid position is found
 
 	def generate_procedural_map(self):
 		# Always create the first room and place the player inside it
-		first_room = Room(random.randint(1, MAP_WIDTH - 1), random.randint(1, MAP_HEIGHT - 1), random.randint(10, 20), random.randint(10, 20))
+		first_room = Room(random.randint(1, MAP_WIDTH - 20), random.randint(1, MAP_HEIGHT - 20), random.randint(10, 15), random.randint(10, 15))
 		self.add_room(first_room, self.corridor_width)
 		self.add_room_to_graph(first_room)  # Add the first room to the graph
 
-		# Find a valid open position within the first room for the player
+		# Find the center position within the first room for the player
 		player_x, player_y = self.find_valid_player_position(first_room)
 		if player_x is not None and player_y is not None:
 			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack)
