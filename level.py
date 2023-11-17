@@ -16,6 +16,7 @@ class Room:
 		self.y = y
 		self.width = width
 		self.height = height
+		
 
 	def create_room(self, dungeon_layout):
 		# Fill the defined area of the dungeon map with open space
@@ -27,6 +28,7 @@ class Room:
 
 class Level:
 	corridor_width = 4
+	enemy_types = ['S', 'W', 'K', 'B']  # Different types of enemies
 	
 	def __init__(self):
 
@@ -228,8 +230,9 @@ class Level:
 			return 'corner', (1, 1), 'top', True
 
 		return None
-	
+ 
 	def populate_objects(self):
+		enemy_types = self.enemy_types
 		for room in self.rooms:
 			# Place an item in the center of each room
 			center_x, center_y = room.x + room.width // 2, room.y + room.height // 2
@@ -242,15 +245,16 @@ class Level:
 				attempts = 0
 				while not placed and attempts < 10:
 					attempts += 1
-					enemy_x, enemy_y = random.randint(room.x + 1, room.x + room.width - 2), random.randint(room.y + 1, room.y + room.height - 2)
+					enemy_x, enemy_y = random.randint(room.x + 2, room.x + room.width - 4), random.randint(room.y + 2, room.y + room.height - 4)
 					if self.dungeon_layout[enemy_y][enemy_x] == ' ':
-						self.object_layout[enemy_y][enemy_x] = 'E'  # 'E' for Enemy
+						enemy_type = random.choice(enemy_types)  # Randomly choose an enemy type
+						self.object_layout[enemy_y][enemy_x] = enemy_type  # Place enemy type on Map2
 						placed = True
 
- 
 	def create_map(self):
 		# Procedural map generation
 		self.generate_procedural_map()
+		enemy_types = self.enemy_types
 		player_created = False
 		for row_index, row in enumerate(self.dungeon_layout):
 			for col_index, col in enumerate(row):
@@ -296,12 +300,20 @@ class Level:
 			for col_index, cell in enumerate(row):
 				x = col_index * TILESIZE
 				y = row_index * TILESIZE
-				if cell == 'E':
-					Enemy('monster', (x, y), [self.visible_sprites])
-					print('enemy rendered at position:', x, y)
-
-
-			
+				if cell in enemy_types:
+					enemy_name = None
+					if cell == 'S':
+						enemy_name = 'Spider/1'
+					elif cell == 'W':
+						enemy_name = 'Worm/1'
+					elif cell == 'K':
+						enemy_name = 'Skeleton/1'
+					elif cell == 'B':
+						enemy_name = 'Worm/2'
+					# Create the enemy if a name was assigned
+					if enemy_name:
+						Enemy(enemy_name, (x, y), [self.visible_sprites], self.obstacle_sprites)
+						print(f'{enemy_name} enemy rendered at position:', x, y)
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
@@ -443,7 +455,7 @@ class Level:
 			raise ValueError("Player object has not been initialized before running the level.")
 		
 		self.visible_sprites.custom_draw(self.player)
-		
+		self.visible_sprites.enemy_update(self.player)
 		self.visible_sprites.update()
 		
 
@@ -479,5 +491,8 @@ class YSortCameraGroup(pygame.sprite.Group):
 				offset_pos = sprite.rect.topleft - self.offset
 				self.display_surface.blit(sprite.image, offset_pos)
 
-
+	def enemy_update(self, player):
+		enemy_sprites = [sprite for sprite in self.sprites() if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy']
+		for enemy in enemy_sprites:
+			enemy.enemy_update(player)
 		
