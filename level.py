@@ -7,6 +7,7 @@ from debug import debug
 import random
 from weapon import Weapon
 from ui import UI
+from enemy import Enemy
 
 class Room:
 	def __init__(self, x, y, width, height):
@@ -237,9 +238,15 @@ class Level:
 
 			# Place enemies randomly in rooms
 			for _ in range(random.randint(1, 3)):  # Random number of enemies
-				enemy_x, enemy_y = random.randint(room.x, room.x + room.width - 1), random.randint(room.y, room.y + room.height - 1)
-				if self.dungeon_layout[enemy_y][enemy_x] == ' ':
-					self.object_layout[enemy_y][enemy_x] = 'E'  # 'E' for Enemy
+				placed = False
+				attempts = 0
+				while not placed and attempts < 10:
+					attempts += 1
+					enemy_x, enemy_y = random.randint(room.x + 1, room.x + room.width - 2), random.randint(room.y + 1, room.y + room.height - 2)
+					if self.dungeon_layout[enemy_y][enemy_x] == ' ':
+						self.object_layout[enemy_y][enemy_x] = 'E'  # 'E' for Enemy
+						placed = True
+
  
 	def create_map(self):
 		# Procedural map generation
@@ -282,18 +289,19 @@ class Level:
 				 	self.destroy_attack,
 				  	self.create_magic)
 					player_created = True
-	 
-				elif col == 'I':
-				# Render an item sprite at this location
-					pass
-				elif col == 'E':
-				# Render an enemy sprite at this location
-			 		pass
-
 			if self.player is None:
 				print("Player was not created!")
-			else:
-				print(f"Player object: {self.player}")
+     
+		for row_index, row in enumerate(self.object_layout):
+			for col_index, cell in enumerate(row):
+				x = col_index * TILESIZE
+				y = row_index * TILESIZE
+				if cell == 'E':
+					Enemy('monster', (x, y), [self.visible_sprites])
+					print('enemy rendered at position:', x, y)
+
+
+			
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites])
@@ -338,7 +346,7 @@ class Level:
 		player_x, player_y = self.find_valid_player_position(first_room)
 		if player_x is not None and player_y is not None:
 			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack, self.create_magic)
-			print(f"Player created at: {(player_x, player_y)}")
+			#print(f"Player created at: {(player_x, player_y)}")
 		else:
 			print("Failed to place the player in a valid position")
 

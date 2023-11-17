@@ -24,10 +24,6 @@ class Tile(pygame.sprite.Sprite):
         self.is_corner_tile = tile_type == 'corner'
         self.edge_type = edge_type
 
-        if self.is_corner_tile:
-            print(f"Corner tile created at: {self.rect.topleft}")
-
-
         if self.is_wall:
             # Only add wall tiles to the obstacle group and set a custom hitbox
             self.add(obstacle_group)
