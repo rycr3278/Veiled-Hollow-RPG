@@ -137,8 +137,7 @@ class Level:
 				return 'wall', (2, 1), None
 		elif current_tile == ' ':
 			# Return coordinates for a floor tile
-			return 'floor', (0, 1), None
-		# Add more conditions as needed for other types of tiles
+			return 'floor', (random.randint(1,3), random.randint(1,2)), None
 
 		return None, None, None  # Default case if no match is found
 	
