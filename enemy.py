@@ -14,6 +14,7 @@ class Enemy(Entity):
         # General setup
         super().__init__(groups)
         self.sprite_type = 'enemy'
+        self.facing_right = True
 
         # Determine frame size for this monster type
         enemy_type = monster_name.split('/')[0]
@@ -84,7 +85,21 @@ class Enemy(Entity):
             if now - self.last_update >= self.animation_speed * 1000:
                 self.last_update = now
                 self.frame_index = (self.frame_index + 1) % len(self.animations[action])
-                self.image = self.animations[action][self.frame_index]
+
+                # Ensure we have a valid frame index before updating the image
+                if 0 <= self.frame_index < len(self.animations[action]):
+                    next_frame = self.animations[action][self.frame_index]
+
+                    if action in ['walk', 'attack']:
+                        # Apply flipping for both walk and attack actions
+                        if self.facing_right:
+                            self.image = next_frame
+                        else:
+                            self.image = pygame.transform.flip(next_frame, True, False)
+                    else:
+                        self.image = next_frame
+
+
 
     def get_player_distance_direction(self, player):
         enemy_vec = pygame.math.Vector2(self.rect.center)
@@ -99,27 +114,33 @@ class Enemy(Entity):
         return (distance, direction)
 
     def get_status(self, player):
-        distance = self.get_player_distance_direction(player)[0]
+        distance, direction = self.get_player_distance_direction(player)
         
         if distance <= self.attack_radius and self.can_attack:
             self.status = 'attack'
         elif distance <= self.notice_radius:
-            self.status = 'move'
+            self.status = 'walk'
         else:
             self.status = 'idle'
 
     def actions(self, player):
         if self.status == 'attack':
-            print('attack')
-        elif self.status == 'move':
+            self.direction = pygame.math.Vector2()  # Stop moving when attacking
+        elif self.status == 'walk':
             self.direction = self.get_player_distance_direction(player)[1]
         else:
             self.direction = pygame.math.Vector2()
+            
+        # Update facing direction
+        if self.direction.x < 0:
+            self.facing_right = False
+        elif self.direction.x > 0:
+            self.facing_right = True
     
     def update(self):
-        
-        self.move(self.speed)
-        self.animate(self.status)  # Example, change 'walk' to the desired action
+        if self.status != 'attack':
+            self.move(self.speed)  # Move only if not attacking
+        self.animate(self.status)
     
     def enemy_update(self, player):
         self.get_status(player)
