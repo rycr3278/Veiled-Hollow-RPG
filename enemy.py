@@ -21,14 +21,30 @@ class Enemy(Entity):
         frame_width, frame_height = self.enemy_frame_data[enemy_type]['frame_size']
 
         # Graphics setup
-        self.import_graphics(monster_name)
-        self.status = 'idle'  # Set default status
-        self.frame_index = 0
+        self.import_graphics(monster_name)  # Import graphics first
+
+        # Debug: Print the monster_name
+        print("Initializing enemy with monster_name:", monster_name)
+
+        # Determine initial status and image based on enemy type
+        # Using lower() for case-insensitive matching and strip() to remove any leading/trailing whitespaces
+        if 'worm' in monster_name.lower().strip():  # Adjusted condition
+            self.status = 'attack'  # Set initial status to 'attack' for Worms
+            self.image = self.animations['attack'][0]  # Set initial image to the first frame of attack animation
+            print("Initialized as Worm with attack animation.")
+        else:
+            self.status = 'idle'  # Set default status for other enemies
+            self.image = self.animations['idle'][0]  # Set initial image to the first frame of idle animation
+            print("Initialized as non-Worm with idle animation.")
+
+        self.rect = self.image.get_rect(topleft=pos)
+        
+        
 
         # Set the initial image based on the frame size
         self.image = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
         self.image = self.animations[self.status][self.frame_index]
-        self.rect = self.image.get_rect(topleft=pos)
+        
         
         # Animation setup
         self.last_update = pygame.time.get_ticks()
