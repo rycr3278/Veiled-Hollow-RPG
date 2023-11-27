@@ -40,7 +40,7 @@ class Game:
 			self.level.run()
 			
 			# Draw the vignette over the screen
-			self.screen.blit(self.vignette, (0, 0))
+			# self.screen.blit(self.vignette, (0, 0))
 			self.level.ui.display(self.level.player)
 			pygame.display.update()
 			

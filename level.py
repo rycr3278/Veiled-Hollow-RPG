@@ -17,7 +17,6 @@ class Room:
 		self.width = width
 		self.height = height
 		
-
 	def create_room(self, dungeon_layout):
 		# Fill the defined area of the dungeon map with open space
 		for x in range(self.x, self.x + self.width):
@@ -56,6 +55,8 @@ class Level:
 
 		# attack sprites
 		self.current_attack = None
+		self.attack_sprites = pygame.sprite.Group()
+		self.attackable_sprites = pygame.sprite.Group()
   
 		# graph of rooms
 		self.room_graph = {}
@@ -312,17 +313,31 @@ class Level:
 						enemy_name = 'Worm/2'
 					# Create the enemy if a name was assigned
 					if enemy_name:
-						Enemy(enemy_name, (x, y), [self.visible_sprites], self.obstacle_sprites)
+						Enemy(enemy_name, 
+            				(x, y), 
+                			[self.visible_sprites, self.attackable_sprites], 
+                   			self.obstacle_sprites)
 						print(f'{enemy_name} enemy rendered at position:', x, y)
 
 	def create_attack(self):
-		self.current_attack = Weapon(self.player, [self.visible_sprites])
+		self.current_attack = Weapon(self.player, [self.visible_sprites, self.attack_sprites])
 		
 	def destroy_attack(self):
 		if self.current_attack:
 			self.current_attack.kill()
 		self.current_attack = None
 	
+	def player_attack_logic(self):
+		if self.attack_sprites:
+			for attack_sprite in self.attack_sprites:
+				# Check for collision between the attack sprite and the attackable sprites
+				collision_sprites = pygame.sprite.spritecollide(attack_sprite, self.attackable_sprites, False)
+				if collision_sprites:
+					for target_sprite in collision_sprites:
+						# Remove the enemy sprite upon collision
+						target_sprite.kill()
+
+ 
 	def create_magic(self, style, strength, cost):
 		print(style)
 		print(strength)
@@ -455,7 +470,11 @@ class Level:
 			raise ValueError("Player object has not been initialized before running the level.")
 		
 		self.visible_sprites.custom_draw(self.player)
+
+		self.player_attack_logic()
+  
 		self.visible_sprites.enemy_update(self.player)
+		
 		self.visible_sprites.update()
 		
 
