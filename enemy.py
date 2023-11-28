@@ -23,6 +23,7 @@ class Enemy(Entity):
 
         # Graphics setup
         self.import_graphics(monster_name)  # Import graphics first
+        self.frame_index = 0
         
         # Debug: Print the monster_name
         print("Initializing enemy with monster_name:", monster_name)
@@ -46,10 +47,6 @@ class Enemy(Entity):
         
         # Animation setup
         self.last_update = pygame.time.get_ticks()
-        
-        # Flag to track whether an animation has completed
-        self.animation_complete = False
-        self.death_animation_done = False
         
         # Movement
         self.rect = self.image.get_rect(topleft = pos)
@@ -77,6 +74,7 @@ class Enemy(Entity):
         
     def import_graphics(self, name):
         self.animations = {'walk': [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': [], 'final_death' : []}  # Actions
+        
         enemy_type = name.split('/')[0]
         frame_width, frame_height = self.enemy_frame_data[enemy_type]['frame_size']
 
@@ -91,10 +89,9 @@ class Enemy(Entity):
                     frame = self.get_image(action_sprite_sheet, x, y, frame_width, frame_height)
                     self.animations[action].append(frame)
             except KeyError:
+                print('this action does not exist')
                 # This action does not exist for this enemy type, so we skip it
                 pass
-
-        self.image = self.animations['idle'][0]  # Set initial image
    
     def get_image(self, sheet, x, y, width, height):
         # Extracts and returns an image from a sprite sheet
@@ -105,7 +102,7 @@ class Enemy(Entity):
     def animate(self):
         now = pygame.time.get_ticks()
         action = self.status
-
+        print('action: ', action)
         if action == 'final_death':
             return  # Exit to prevent further animation
 
@@ -116,10 +113,15 @@ class Enemy(Entity):
                 self.image = self.animations[action][self.frame_index]
                 if not self.facing_right:
                     self.image = pygame.transform.flip(self.image, True, False)
+                
+                if action == 'hurt' and self.frame_index == len(self.animations['hurt']) - 1:
+                    self.status = 'idle'
+                    print("animate: 'Hurt' animation completed, setting status back to 'idle'")
 
                 # Transition from 'death' to 'final_death'
                 if action == 'death' and self.frame_index == len(self.animations['death']) - 1:  # It means it completed the loop
                     self.status = 'final_death'
+                    print('status set to final_death 123')
 
     def get_damage(self, player, attack_type):
         current_time = pygame.time.get_ticks()
@@ -146,7 +148,9 @@ class Enemy(Entity):
                 self.status = 'hurt'
                 self.vulnerable = False
                 self.frame_index = 0
-            print("Enemy hit: status set to 'hurt'")
+                print(f"get_damage: Enemy hurt, setting status to 'hurt', frame index reset to {self.frame_index}")
+                print(self.status)
+                
 
     def cooldowns(self):
         current_time = pygame.time.get_ticks()
@@ -163,9 +167,6 @@ class Enemy(Entity):
             if self.status != 'death':
                 self.status = 'death'
                 self.frame_index = 0  # Start at the first frame of the death animation
-            elif self.death_animation_done:
-                self.status = 'final_death'
-                self.image = self.animations['final_death'][0]
 
     def get_player_distance_direction(self, player):
         enemy_vec = pygame.math.Vector2(self.rect.center)
@@ -180,7 +181,8 @@ class Enemy(Entity):
 
     def get_status(self, player):
         distance, direction = self.get_player_distance_direction(player)
-        
+        if self.status == 'hurt':
+            return
         if distance <= self.attack_radius and self.can_attack:
             self.status = 'attack'
         elif distance <= self.notice_radius:
@@ -191,7 +193,7 @@ class Enemy(Entity):
     def actions(self, player):
         if self.status in ['death', 'final_death']:
             return
-        elif self.status == 'attack':
+        elif self.status in ['hurt', 'attack']:
             self.direction = pygame.math.Vector2()  # Stop moving when attacking
         elif self.status == 'walk':
             self.direction = self.get_player_distance_direction(player)[1]
@@ -217,8 +219,10 @@ class Enemy(Entity):
                 self.facing_right = True
 
     def update(self):
+        #print(f"update: Current status is {self.status}")
         if self.status != 'final_death':
-            self.move_and_face_direction()  # Handle movement and facing direction
+            if self.status != 'hurt':
+                self.move_and_face_direction()  # Handle movement and facing direction
             self.animate()
         else:
             if self.facing_right:
@@ -230,6 +234,7 @@ class Enemy(Entity):
         self.check_death()
 
     def enemy_update(self, player):
+        #print(f"enemy_update: Current status is {self.status}")
         if self.status == 'final_death':
             return
         if self.status not in ['final_death', 'death']:
