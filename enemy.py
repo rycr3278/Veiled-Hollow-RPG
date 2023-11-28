@@ -15,6 +15,7 @@ class Enemy(Entity):
         super().__init__(groups)
         self.sprite_type = 'enemy'
         self.facing_right = True
+        self.facing_right_at_death = True
 
         # Determine frame size for this monster type
         enemy_type = monster_name.split('/')[0]
@@ -106,10 +107,7 @@ class Enemy(Entity):
         action = self.status
 
         if action == 'final_death':
-            # Keep the final death frame static
-            self.frame_index = 0
-            self.image = self.animations[action][self.frame_index]
-            return  # Exit the method to prevent further animation
+            return  # Exit to prevent further animation
 
         if action in self.animations and len(self.animations[action]) > 0:
             if now - self.last_update >= self.animation_speed * 1000:
@@ -131,11 +129,18 @@ class Enemy(Entity):
                 self.health -= player.get_full_weapon_damage()
             else:
                 pass # magic damage later
+            
             self.hit_time = current_time
             self.vulnerable = False
+            
             if self.health <= 0:
                 self.status = 'death'
                 self.frame_index = 0
+                self.final_death_image = self.animations['final_death'][0]
+                print('self.facing_right: ', self.facing_right)
+                print('self.facing_right_at_death: ', self.facing_right_at_death)
+                if not self.facing_right:
+                    self.final_death_image = pygame.transform.flip(self.final_death_image, True, False)
                 print("Enemy hit: status set to 'death'")
             else:
                 self.status = 'hurt'
@@ -154,13 +159,13 @@ class Enemy(Entity):
                 self.vulnerable = True
      
     def check_death(self):
-        if self.health <= 0:
-            if self.status not in ['death', 'final_death']:
+        if self.health <= 0 and self.status != 'final_death':
+            if self.status != 'death':
                 self.status = 'death'
                 self.frame_index = 0  # Start at the first frame of the death animation
-            elif self.status == 'death' and self.death_animation_done:
+            elif self.death_animation_done:
                 self.status = 'final_death'
-
+                self.image = self.animations['final_death'][0]
 
     def get_player_distance_direction(self, player):
         enemy_vec = pygame.math.Vector2(self.rect.center)
@@ -170,8 +175,7 @@ class Enemy(Entity):
         if distance > 0:
             direction = (player_vec - enemy_vec).normalize()
         else:
-            direction = pygame.math.Vector2()
-                
+            direction = pygame.math.Vector2()     
         return (distance, direction)
 
     def get_status(self, player):
@@ -217,12 +221,17 @@ class Enemy(Entity):
             self.move_and_face_direction()  # Handle movement and facing direction
             self.animate()
         else:
-            self.image = self.animations['final_death'][0]  # Show the final death frame
+            if self.facing_right:
+                self.image = self.animations['final_death'][0]  # Show the final death frame
+            else:
+                self.image = pygame.transform.flip(self.animations['final_death'][0], True, False)  # Flip if needed
 
         self.cooldowns()
         self.check_death()
 
     def enemy_update(self, player):
+        if self.status == 'final_death':
+            return
         if self.status not in ['final_death', 'death']:
             self.get_status(player)
             self.actions(player)

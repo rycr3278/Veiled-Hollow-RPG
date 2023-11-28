@@ -330,15 +330,11 @@ class Level:
 	def player_attack_logic(self):
 		if self.attack_sprites:
 			for attack_sprite in self.attack_sprites:
-				# Check for collision between the attack sprite and the attackable sprites
 				collision_sprites = pygame.sprite.spritecollide(attack_sprite, self.attackable_sprites, False)
-				if collision_sprites:
-					for target_sprite in collision_sprites:
-						if target_sprite.sprite_type == 'o':
-						# Remove the enemy sprite upon collision
-							target_sprite.kill()
-						else:
-							target_sprite.get_damage(self.player,attack_sprite.sprite_type)
+				for target_sprite in collision_sprites:
+					if target_sprite.sprite_type == 'enemy' and target_sprite.status != 'final_death':
+						target_sprite.get_damage(self.player, attack_sprite.sprite_type)
+
 
  
 	def create_magic(self, style, strength, cost):
