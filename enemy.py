@@ -5,9 +5,9 @@ from entity import Entity
 class Enemy(Entity):
     enemy_frame_data = {
         'Spider': {'frame_size' : (64,64), 'walk': 8, 'attack': 12, 'death': 17, 'idle': 8, 'hurt' : 6, 'final_death' : 1},
-        'Worm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1},
+        'Worm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
         'Skeleton': {'frame_size' : (128,128), 'walk': 8, 'attack': 17, 'death': 13, 'idle': 7, 'hurt' : 11, 'final_death' : 1},
-        'BigWorm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1}
+        'BigWorm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
     }
 
     def __init__(self, monster_name, pos, groups, obstacle_sprites):
@@ -16,9 +16,11 @@ class Enemy(Entity):
         self.sprite_type = 'enemy'
         self.facing_right = True
         self.facing_right_at_death = True
+        self.attacking = False
 
         # Determine frame size for this monster type
         enemy_type = monster_name.split('/')[0]
+        self.monster_type = enemy_type
         frame_width, frame_height = self.enemy_frame_data[enemy_type]['frame_size']
 
         # Graphics setup
@@ -28,16 +30,13 @@ class Enemy(Entity):
         # Debug: Print the monster_name
         print("Initializing enemy with monster_name:", monster_name)
 
-        # Determine initial status and image based on enemy type
-        # Using lower() for case-insensitive matching and strip() to remove any leading/trailing whitespaces
-        if 'worm' in monster_name.lower().strip():  # Adjusted condition
-            self.status = 'attack'  # Set initial status to 'attack' for Worms
-            self.image = self.animations['attack'][0]  # Set initial image to the first frame of attack animation
-            print("Initialized as Worm with attack animation.")
+        # Set initial status based on monster type
+        if self.monster_type in ['Worm', 'BigWorm']:
+            self.status = 'waiting'
         else:
-            self.status = 'idle'  # Set default status for other enemies
-            self.image = self.animations['idle'][0]  # Set initial image to the first frame of idle animation
-            print("Initialized as non-Worm with idle animation.")
+            self.status = 'idle'
+            
+        self.image = self.animations[self.status][0]
 
         self.rect = self.image.get_rect(topleft=pos)
 
@@ -73,7 +72,7 @@ class Enemy(Entity):
         self.invincibility_duration = 500
         
     def import_graphics(self, name):
-        self.animations = {'walk': [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': [], 'final_death' : []}  # Actions
+        self.animations = {'walk': [], 'waiting' : [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': [], 'final_death' : []}  # Actions
         
         enemy_type = name.split('/')[0]
         frame_width, frame_height = self.enemy_frame_data[enemy_type]['frame_size']
@@ -102,7 +101,6 @@ class Enemy(Entity):
     def animate(self):
         now = pygame.time.get_ticks()
         action = self.status
-        print('action: ', action)
         if action == 'final_death':
             return  # Exit to prevent further animation
 
@@ -116,13 +114,11 @@ class Enemy(Entity):
                 
                 if action == 'hurt' and self.frame_index == len(self.animations['hurt']) - 1:
                     self.status = 'idle'
-                    print("animate: 'Hurt' animation completed, setting status back to 'idle'")
 
                 # Transition from 'death' to 'final_death'
                 if action == 'death' and self.frame_index == len(self.animations['death']) - 1:  # It means it completed the loop
                     self.status = 'final_death'
-                    print('status set to final_death 123')
-
+                    
     def get_damage(self, player, attack_type):
         current_time = pygame.time.get_ticks()
         if self.vulnerable:
@@ -151,7 +147,6 @@ class Enemy(Entity):
                 print(f"get_damage: Enemy hurt, setting status to 'hurt', frame index reset to {self.frame_index}")
                 print(self.status)
                 
-
     def cooldowns(self):
         current_time = pygame.time.get_ticks()
         if not self.can_attack:
@@ -181,14 +176,20 @@ class Enemy(Entity):
 
     def get_status(self, player):
         distance, direction = self.get_player_distance_direction(player)
-        if self.status == 'hurt':
-            return
-        if distance <= self.attack_radius and self.can_attack:
-            self.status = 'attack'
-        elif distance <= self.notice_radius:
-            self.status = 'walk'
+        if self.monster_type in ['Worm', 'BigWorm']:
+            if self.status == 'waiting' and distance <= self.attack_radius:
+                self.status = 'attack'
+            elif self.status == 'attack' and self.frame_index == len(self.animations['attack']) - 1:  # Ensure animation_complete is correctly set
+                self.status = 'idle'
         else:
-            self.status = 'idle'
+            if self.status == 'hurt':
+                return
+            if distance <= self.attack_radius and self.can_attack:
+                self.status = 'attack'
+            elif distance <= self.notice_radius:
+                self.status = 'walk'
+            else:
+                self.status = 'idle'
 
     def actions(self, player):
         if self.status in ['death', 'final_death']:
