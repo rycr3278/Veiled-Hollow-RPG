@@ -194,10 +194,17 @@ class Enemy(Entity):
     def actions(self, player):
         if self.status in ['death', 'final_death']:
             return
-        elif self.status in ['hurt', 'attack']:
-            self.direction = pygame.math.Vector2()  # Stop moving when attacking
-        elif self.status == 'walk':
-            self.direction = self.get_player_distance_direction(player)[1]
+
+        if self.monster_type in ['Worm', 'BigWorm']:
+            # Special handling for worms
+            if self.status not in ['waiting', 'hurt']:
+                self.update_direction(player)
+        else:
+            # Handling for other enemy types
+            if self.status in ['hurt', 'attack']:
+                self.direction = pygame.math.Vector2()  # Stop moving when attacking
+            elif self.status == 'walk':
+                self.update_direction(player)
         
         # Update facing direction
         if self.direction.x < 0:
@@ -209,6 +216,10 @@ class Enemy(Entity):
         if self.status == 'hurt':
             # The animation logic will be handled in the animate method called in update
             pass
+
+    def update_direction(self, player):
+            _, direction = self.get_player_distance_direction(player)
+            self.direction = direction
 
     def move_and_face_direction(self):
         if self.status not in ['attack', 'death', 'final_death']:
