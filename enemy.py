@@ -101,6 +101,7 @@ class Enemy(Entity):
     def animate(self):
         now = pygame.time.get_ticks()
         action = self.status
+
         if action == 'final_death':
             return  # Exit to prevent further animation
 
@@ -111,12 +112,15 @@ class Enemy(Entity):
                 self.image = self.animations[action][self.frame_index]
                 if not self.facing_right:
                     self.image = pygame.transform.flip(self.image, True, False)
-                
+
                 if action == 'hurt' and self.frame_index == len(self.animations['hurt']) - 1:
                     self.status = 'idle'
 
+                if action == 'retreat' and self.frame_index == len(self.animations['retreat']) - 1:
+                    self.status = 'waiting'  # Transition back to 'waiting' after 'retreat'
+
                 # Transition from 'death' to 'final_death'
-                if action == 'death' and self.frame_index == len(self.animations['death']) - 1:  # It means it completed the loop
+                if action == 'death' and self.frame_index == len(self.animations['death']) - 1:
                     self.status = 'final_death'
                     
     def get_damage(self, player, attack_type):
@@ -175,13 +179,18 @@ class Enemy(Entity):
         return (distance, direction)
 
     def get_status(self, player):
-        distance, direction = self.get_player_distance_direction(player)
+        distance, _ = self.get_player_distance_direction(player)
         if self.monster_type in ['Worm', 'BigWorm']:
             if self.status == 'waiting' and distance <= self.attack_radius:
                 self.status = 'attack'
-            elif self.status == 'attack' and self.frame_index == len(self.animations['attack']) - 1:  # Ensure animation_complete is correctly set
+            elif self.status == 'idle' and distance > self.attack_radius:
+                self.status = 'retreat'  # Change to 'retreat' when player leaves attack radius
+            elif self.status == 'attack' and self.frame_index == len(self.animations['attack']) - 1:
                 self.status = 'idle'
+            elif self.status == 'retreat' and self.frame_index == len(self.animations['retreat']) - 1:
+                self.status = 'waiting'  # Ensure it goes back to 'waiting' after 'retreat'
         else:
+            # Handling for other enemy types
             if self.status == 'hurt':
                 return
             if distance <= self.attack_radius and self.can_attack:

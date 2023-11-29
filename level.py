@@ -64,11 +64,17 @@ class Level:
 		# initialize player
 		self.player = None
   
+		# for debug in main
+		self.enemy_sprites = pygame.sprite.Group()
+  
   		# sprite setup
 		self.create_map()
   
 		# UI
 		self.ui = UI()
+  
+		
+
 
 	def add_room_to_graph(self, room):
 		self.room_graph[room] = []
@@ -256,6 +262,7 @@ class Level:
 		# Procedural map generation
 		self.generate_procedural_map()
 		enemy_types = self.enemy_types
+		
 		player_created = False
 		for row_index, row in enumerate(self.dungeon_layout):
 			for col_index, col in enumerate(row):
@@ -315,7 +322,7 @@ class Level:
 					if enemy_name:
 						Enemy(enemy_name, 
             				(x, y), 
-                			[self.visible_sprites, self.attackable_sprites], 
+                			[self.visible_sprites, self.attackable_sprites, self.enemy_sprites], 
                    			self.obstacle_sprites)
 						print(f'{enemy_name} enemy rendered at position:', x, y)
 
@@ -335,8 +342,6 @@ class Level:
 					if target_sprite.sprite_type == 'enemy' and target_sprite.status != 'final_death':
 						target_sprite.get_damage(self.player, attack_sprite.sprite_type)
 
-
- 
 	def create_magic(self, style, strength, cost):
 		print(style)
 		print(strength)

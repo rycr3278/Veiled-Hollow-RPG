@@ -49,7 +49,7 @@ magic_data = {'flame' : {'strength' : 5, 'cost' : 20, 'graphic' : 'graphics/part
               'heal' : {'strength' : 20, 'cost' : 10, 'graphic' : 'graphics/particles/heal/heal.png'}}
 
 # enemy
-monster_data = {'Worm' : {'health' : 100, 'damage' : 20, 'attack_type' : 'slash', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 0, 'resistance' : 3, 'attack_radius' : 50, 'notice_radius' : 50, 'exp' : 100},
-                'BigWorm' : {'health' : 100, 'damage' : 20, 'attack_type' : 'claw', 'attack_sound' : 'audio/attack/claw.wav', 'speed' : 0, 'resistance' : 3, 'attack_radius' : 50, 'notice_radius' : 50, 'exp' : 100}, 
-                'Skeleton' : {'health' : 100, 'damage' : 20, 'attack_type' : 'thunder', 'attack_sound' : 'audio/attack/fireball.wav', 'speed' : 1, 'resistance' : 3, 'attack_radius' : 30, 'notice_radius' : 360, 'exp' : 100}, 
-                'Spider' :  {'health' : 100, 'damage' : 20, 'attack_type' : 'leaf_attack', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 2, 'resistance' : 3, 'attack_radius' : 30, 'notice_radius' : 360, 'exp' : 100}}
+monster_data = {'Worm' : {'health' : 10, 'damage' : 80, 'attack_type' : 'slash', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 0, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 80, 'exp' : 100},
+                'BigWorm' : {'health' : 10, 'damage' : 80, 'attack_type' : 'claw', 'attack_sound' : 'audio/attack/claw.wav', 'speed' : 0, 'resistance' : 3, 'attack_radius' : 80, 'notice_radius' : 80, 'exp' : 100}, 
+                'Skeleton' : {'health' : 100, 'damage' : 30, 'attack_type' : 'thunder', 'attack_sound' : 'audio/attack/fireball.wav', 'speed' : 1, 'resistance' : 3, 'attack_radius' : 30, 'notice_radius' : 360, 'exp' : 100}, 
+                'Spider' :  {'health' : 50, 'damage' : 10, 'attack_type' : 'leaf_attack', 'attack_sound' : 'audio/attack/slash.wav', 'speed' : 3, 'resistance' : 3, 'attack_radius' : 30, 'notice_radius' : 360, 'exp' : 100}}

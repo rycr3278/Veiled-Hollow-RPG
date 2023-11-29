@@ -1,6 +1,7 @@
 import pygame, sys
 from settings import *
 from level import Level
+from debug import *
 import os
 import cProfile
 
@@ -28,9 +29,15 @@ class Game:
 				vignette_surface.set_at((x, y), (0, 0, 0, alpha))
 
 		return vignette_surface
+		for sprite in group:
+			if hasattr(sprite, 'hitbox'):
+				# If the sprite has a hitbox attribute, draw a box around it
+				pygame.draw.rect(screen, color, sprite.hitbox, 1)  # 1 is the width of the box border
+			else:
+				# Otherwise, draw a box around the sprite's rect
+				pygame.draw.rect(screen, color, sprite.rect, 1)
 
 	def run(self):
-		print(os.getcwd())
 		while True:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -40,8 +47,8 @@ class Game:
 			self.level.run()
 			
 			# Draw the vignette over the screen
-			# self.screen.blit(self.vignette, (0, 0))
-			self.level.ui.display(self.level.player)
+			self.screen.blit(self.vignette, (0, 0))
+			self.level.ui.display(self.level.player)   
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
