@@ -31,4 +31,3 @@ class Tile(pygame.sprite.Sprite):
         else:
             # For floor tiles, the hitbox is the same as the rect
             self.hitbox = self.rect
-

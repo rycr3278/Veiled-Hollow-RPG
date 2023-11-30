@@ -49,7 +49,8 @@ class Level:
 		Tile.load_tilesheet('floor', 'graphics/_Crypt/Tilesets/ground 1 to 2.png')
 		Tile.load_tilesheet('overlay', 'graphics/_Crypt/Tilesets/wall-1.png')
 		Tile.load_tilesheet('corner', 'graphics/_Crypt/Tilesets/wall-1.png')
-  
+		Tile.load_tilesheet('doors', 'graphics/_Crypt/Props/animated/doors/doors-metal-door frame 1-opening.png')
+
 		# list of rooms
 		self.rooms = []
 
@@ -57,10 +58,10 @@ class Level:
 		self.current_attack = None
 		self.attack_sprites = pygame.sprite.Group()
 		self.attackable_sprites = pygame.sprite.Group()
-  
+
 		# graph of rooms
 		self.room_graph = {}
-  
+
 		# initialize player
 		self.player = None
   
@@ -72,13 +73,7 @@ class Level:
   
 		# UI
 		self.ui = UI()
-  
-		
 
-
-	def add_room_to_graph(self, room):
-		self.room_graph[room] = []
-	
 	def calculate_distance(self, room1, room2):
 		# Calculate the center points of both rooms
 		center1 = (room1.x + room1.width // 2, room1.y + room1.height // 2)
@@ -100,28 +95,9 @@ class Level:
 		if closest_room:
 			self.connect_rooms(new_room, closest_room, self.corridor_width)
 			print('Room at '+ str(new_room.x), str(new_room.y) + ' connected to room at ' + str(closest_room.x), str(closest_room.y))
-			self.room_graph[new_room].append(closest_room)
-			self.room_graph[closest_room].append(new_room)
+
 		else:
 			print(f"No other room found to connect with room at ({new_room.x}, {new_room.y})")
-
-	def ensure_all_rooms_connected(self):
-		visited = set()
-		self.dfs(self.rooms[0], visited)  # Start DFS from the first room
-		for room in self.rooms:
-			if room not in visited:
-				self.connect_to_closest_room(room)
-				self.dfs(room, visited)
-		
-		# Debugging: Print the room graph to ensure all rooms are connected
-		for room, connections in self.room_graph.items():
-			print(f"Room at ({room.x}, {room.y}) is connected to {[f'({r.x}, {r.y})' for r in connections]}")
-
-	def dfs(self, room, visited):
-		visited.add(room)
-		for connected_room in self.room_graph[room]:
-			if connected_room not in visited:
-				self.dfs(connected_room, visited)
 	
 	def get_tile_type(self, dungeon_layout, row_index, col_index):
 		current_tile = dungeon_layout[row_index][col_index]
@@ -130,9 +106,6 @@ class Level:
 		left_tile = dungeon_layout[row_index][col_index - 1] if col_index + 1 < len(dungeon_layout) else None
 		right_tile = dungeon_layout[row_index][col_index + 1] if col_index + 1 < len(dungeon_layout) else None
 		two_below = dungeon_layout[row_index + 2][col_index] if row_index + 2 < len(dungeon_layout) else None
-		two_above = dungeon_layout[row_index - 2][col_index] if row_index + 2 < len(dungeon_layout) else None
-		three_below = dungeon_layout[row_index + 3][col_index] if row_index + 3 < len(dungeon_layout) else None
-		up_right = dungeon_layout[row_index + 1][col_index + 1] if row_index + 1 < len(dungeon_layout) and col_index + 1 < len(dungeon_layout) else None
   
 		if current_tile == 'x':
 			if below_tile == 'x' and two_below == ' ':
@@ -325,6 +298,50 @@ class Level:
                 			[self.visible_sprites, self.attackable_sprites, self.enemy_sprites], 
                    			self.obstacle_sprites)
 						print(f'{enemy_name} enemy rendered at position:', x, y)
+		
+  		# Additional code for door creation
+		for room in self.rooms:
+			central_x = room.x + room.width // 2
+			door_bottom_row_y = room.y + 1
+
+			door_x = central_x - 2  # Center the door
+
+			# Diagnostic print statements
+			print(f"Checking door placement for Room at ({room.x}, {room.y})")
+			print(f"Door bottom row Y: {door_bottom_row_y}, Central X: {central_x}, Door X: {door_x}")
+
+			# Ensure there's enough space above the wall and the top wall is suitable
+			if door_bottom_row_y - 3 >= 0:
+				# Check if the bottom row of the door and two rows above it are suitable
+				bottom_row_ok = all(self.dungeon_layout[door_bottom_row_y][max(0, door_x + i)] == ' ' for i in range(4))
+				one_row_above_ok = all(self.dungeon_layout[door_bottom_row_y - 1][max(0, door_x + i)] == ' ' for i in range(4))
+				two_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 2][max(0, door_x + i)] == 'x' for i in range(4))
+
+				if bottom_row_ok and one_row_above_ok and two_rows_above_ok:
+					print('Door placement possible')
+					self.create_door(door_x * TILESIZE, (door_bottom_row_y - 3) * TILESIZE)
+				else:
+					print('Door placement not possible')
+		for row in self.dungeon_layout:
+			print(''.join(row))
+
+	def create_door(self, x, y):
+		door_width, door_height = 4, 4
+		for i in range(door_width):
+			for j in range(door_height):
+				door_tile_x = (x // TILESIZE) + i
+				door_tile_y = (y // TILESIZE) + j
+
+				if j == 3:  # Mark the bottom row of the door
+					self.dungeon_layout[door_tile_y][door_tile_x] = 'D'
+
+				tile_coords = (i, j)
+				door_pos = (x + i * TILESIZE, y + j * TILESIZE)
+				Tile(door_pos, self.visible_sprites, None, 'doors', tile_coords, 'door')
+
+		# Debugging: Print the dungeon layout
+		for row in self.dungeon_layout:
+			print(''.join(row))
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites, self.attack_sprites])
@@ -371,7 +388,6 @@ class Level:
 		# Always create the first room and place the player inside it
 		first_room = Room(random.randint(1, MAP_WIDTH - 20), random.randint(1, MAP_HEIGHT - 20), random.randint(10, 15), random.randint(10, 15))
 		self.add_room(first_room, self.corridor_width)
-		self.add_room_to_graph(first_room)  # Add the first room to the graph
 
 		# Find the center position within the first room for the player
 		player_x, player_y = self.find_valid_player_position(first_room)
@@ -385,18 +401,15 @@ class Level:
 		for i in range(1, 25):  # Start from 1 since the first room is already created
 			room = Room(random.randint(1, MAP_WIDTH - 10), random.randint(1, MAP_HEIGHT - 10), random.randint(8, 20), random.randint(8, 20))
 			if self.add_room(room, self.corridor_width):
-				self.add_room_to_graph(room)  # Add the room to the graph
 				self.connect_to_closest_room(room)  # Connect the room to the closest one
-		for row in self.dungeon_layout:
-			print(''.join(row))
-		# Ensure all rooms are connected
-		self.ensure_all_rooms_connected()
+		
 		
 		print('map generated')
 
 		self.populate_objects()
 
 		print('objects generated')
+		
 
 	def add_room(self, room, corridor_width):
 		# Check if room overlaps with existing rooms or is too close to the edges.

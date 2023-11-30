@@ -262,4 +262,3 @@ class Enemy(Entity):
             self.get_status(player)
             self.actions(player)
         self.check_death()
-
