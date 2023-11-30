@@ -180,15 +180,31 @@ class Enemy(Entity):
 
     def get_status(self, player):
         distance, _ = self.get_player_distance_direction(player)
+
         if self.monster_type in ['Worm', 'BigWorm']:
             if self.status == 'waiting' and distance <= self.attack_radius:
                 self.status = 'attack'
-            elif self.status == 'idle' and distance > self.attack_radius:
-                self.status = 'retreat'  # Change to 'retreat' when player leaves attack radius
-            elif self.status == 'attack' and self.frame_index == len(self.animations['attack']) - 1:
-                self.status = 'idle'
+                self.frame_index = 0  # Reset frame index when starting attack
+
+            elif self.status == 'attack':
+                if self.frame_index == len(self.animations['attack']) - 1:
+                    if distance > self.attack_radius:
+                        self.status = 'retreat'
+                        self.frame_index = 0
+                    else:
+                        self.status = 'idle'
+
+            elif self.status == 'idle':
+                # Decide what to do after 'idle' based on player distance
+                if distance <= self.attack_radius:
+                    self.status = 'idle'
+                else:
+                    self.status = 'retreat'
+                    self.frame_index = 0
+
             elif self.status == 'retreat' and self.frame_index == len(self.animations['retreat']) - 1:
-                self.status = 'waiting'  # Ensure it goes back to 'waiting' after 'retreat'
+                self.status = 'waiting'  # Go back to 'waiting' after 'retreat'
+    
         else:
             # Handling for other enemy types
             if self.status == 'hurt':
