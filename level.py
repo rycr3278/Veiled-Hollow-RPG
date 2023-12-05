@@ -220,10 +220,10 @@ class Level:
 				self.object_layout[center_y][center_x] = 'I'  # 'I' for Item
 
 			# Place enemies randomly in rooms
-			for _ in range(random.randint(1, 3)):  # Random number of enemies
+			for _ in range(random.randint(1, 2)):  # Random number of enemies
 				placed = False
 				attempts = 0
-				while not placed and attempts < 10:
+				while not placed and attempts < 3:
 					attempts += 1
 					enemy_x, enemy_y = random.randint(room.x + 2, room.x + room.width - 4), random.randint(room.y + 2, room.y + room.height - 4)
 					if self.dungeon_layout[enemy_y][enemy_x] == ' ':
@@ -306,10 +306,6 @@ class Level:
 
 			door_x = central_x - 2  # Center the door
 
-			# Diagnostic print statements
-			print(f"Checking door placement for Room at ({room.x}, {room.y})")
-			print(f"Door bottom row Y: {door_bottom_row_y}, Central X: {central_x}, Door X: {door_x}")
-
 			# Ensure there's enough space above the wall and the top wall is suitable
 			if door_bottom_row_y - 3 >= 0:
 				# Check if the bottom row of the door and two rows above it are suitable
@@ -318,10 +314,8 @@ class Level:
 				two_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 2][max(0, door_x + i)] == 'x' for i in range(4))
 
 				if bottom_row_ok and one_row_above_ok and two_rows_above_ok:
-					print('Door placement possible')
 					self.create_door(door_x * TILESIZE, (door_bottom_row_y - 3) * TILESIZE)
-				else:
-					print('Door placement not possible')
+				
 		for row in self.dungeon_layout:
 			print(''.join(row))
 
@@ -410,7 +404,6 @@ class Level:
 
 		print('objects generated')
 		
-
 	def add_room(self, room, corridor_width):
 		# Check if room overlaps with existing rooms or is too close to the edges.
 		overlap = False

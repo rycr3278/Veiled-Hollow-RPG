@@ -1,8 +1,16 @@
 import pygame
 from settings import *
 from entity import Entity
+import logging
+
+
+logging.basicConfig(filename='game_debug.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
+
 
 class Enemy(Entity):
+    
+    id_counter = 0  # Class variable for keeping track of the number of enemies
+    
     enemy_frame_data = {
         'Spider': {'frame_size' : (64,64), 'walk': 8, 'attack': 12, 'death': 17, 'idle': 8, 'hurt' : 6, 'final_death' : 1},
         'Worm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
@@ -11,8 +19,9 @@ class Enemy(Entity):
     }
 
     def __init__(self, monster_name, pos, groups, obstacle_sprites):
-        # General setup
         super().__init__(groups)
+        self.id = Enemy.id_counter  # Assign an ID to the enemy
+        Enemy.id_counter += 1  # Increment the counter
         self.sprite_type = 'enemy'
         self.facing_right = True
         self.facing_right_at_death = True
@@ -49,7 +58,7 @@ class Enemy(Entity):
         
         # Movement
         self.rect = self.image.get_rect(topleft = pos)
-        self.hitbox = self.rect.inflate(0, -10)
+        self.hitbox = self.rect.inflate(-50, -10)
         self.obstacle_sprites = obstacle_sprites
         
         # Stats
@@ -125,6 +134,12 @@ class Enemy(Entity):
                     
     def get_damage(self, player, attack_type):
         current_time = pygame.time.get_ticks()
+        
+        # Check if the enemy is a worm and if its status is 'waiting'
+        if self.monster_type in ['Worm', 'BigWorm'] and (self.status == 'waiting' or self.status == 'death' or (self.status == 'attack' and self.frame_index <= 14)):
+            # If the status is 'waiting', do not proceed with taking damage
+            return
+        
         if self.vulnerable:
             self.direction = self.get_player_distance_direction(player)[1]
             if attack_type == 'weapon':
@@ -248,7 +263,21 @@ class Enemy(Entity):
 
     def move_and_face_direction(self):
         if self.status not in ['attack', 'death', 'final_death']:
+            before_move = f"Before Move [ID: {self.id}]: {self.rect.topleft}"
+            before_moving = f"[ID: {self.id}] Moving - Direction: {self.direction}, Speed: {self.speed}"
+            x_before_move, y_before_move = self.rect.topleft
             self.move(self.speed)
+            after_move = f"After Move [ID: {self.id}]: {self.rect.topleft}"
+            x_after_move, y_after_move = self.rect.topleft
+            if abs(x_before_move - x_after_move) > 50 or abs(y_before_move - y_after_move) > 50:
+                print('it happened')
+                print(before_move)
+                print(before_moving)
+                print(after_move)
+                print('Status: ', self.status)
+
+            
+            
             # Update facing direction
             if self.direction.x < 0:
                 self.facing_right = False
@@ -259,6 +288,7 @@ class Enemy(Entity):
         #print(f"update: Current status is {self.status}")
         if self.status != 'final_death':
             if self.status != 'hurt':
+                logging.debug(f"Update Start [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
                 self.move_and_face_direction()  # Handle movement and facing direction
             self.animate()
         else:
@@ -269,12 +299,12 @@ class Enemy(Entity):
 
         self.cooldowns()
         self.check_death()
+        logging.debug(f"Update End [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
 
     def enemy_update(self, player):
-        #print(f"enemy_update: Current status is {self.status}")
-        if self.status == 'final_death':
-            return
+        logging.debug(f"Enemy Update Start [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
         if self.status not in ['final_death', 'death']:
             self.get_status(player)
             self.actions(player)
         self.check_death()
+        logging.debug(f"Enemy Update End [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")

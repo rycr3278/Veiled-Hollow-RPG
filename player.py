@@ -13,7 +13,7 @@ class Player(Entity):
 
 		# movement
 		self.attacking = False
-		self.attack_cooldown = 400
+		self.attack_cooldown = 50
 		self.status = 'down'
 		self.attack_time = None
 
@@ -37,7 +37,6 @@ class Player(Entity):
 		self.can_switch_weapon = True
 		self.weapon_switch_time = None
 		self.switch_duration_cooldown = 200
-		print(self.weapon)
   
 		# magic
 		self.create_magic = create_magic
@@ -88,24 +87,24 @@ class Player(Entity):
  
 	def input(self):
 		keys = pygame.key.get_pressed()
+		if not self.attacking:
+			if keys[pygame.K_w]:
+				self.status = 'up'
+				self.direction.y = -1
+			elif keys[pygame.K_s]:
+				self.status = 'down'
+				self.direction.y = 1
+			else:
+				self.direction.y = 0
 
-		if keys[pygame.K_w]:
-			self.status = 'up'
-			self.direction.y = -1
-		elif keys[pygame.K_s]:
-			self.status = 'down'
-			self.direction.y = 1
-		else:
-			self.direction.y = 0
-
-		if keys[pygame.K_d]:
-			self.status = 'right'
-			self.direction.x = 1
-		elif keys[pygame.K_a]:
-			self.status = 'left'
-			self.direction.x = -1
-		else:
-			self.direction.x = 0
+			if keys[pygame.K_d]:
+				self.status = 'right'
+				self.direction.x = 1
+			elif keys[pygame.K_a]:
+				self.status = 'left'
+				self.direction.x = -1
+			else:
+				self.direction.x = 0
    
 		# Attack input
 		if keys[pygame.K_SPACE] and not self.attacking:
@@ -183,7 +182,8 @@ class Player(Entity):
 	def update(self):
 		self.input()
 		self.cooldowns()
-		self.move(self.speed)
+		if not self.attacking:
+			self.move(self.speed)
 	
 		# Animate only when moving
 		if self.direction.magnitude() != 0:

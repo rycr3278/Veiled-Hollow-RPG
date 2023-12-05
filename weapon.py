@@ -5,11 +5,14 @@ class Weapon(pygame.sprite.Sprite):
         super().__init__(groups)
         self.sprite_type = 'weapon'
         direction = player.status
-        print(direction)
         
         # graphic
         full_path = f'graphics/weapons/{player.weapon}/{direction}.png'
-        self.image = pygame.image.load(full_path).convert_alpha()
+        original_image = pygame.image.load(full_path).convert_alpha()
+        
+        # Create a red box of the same size as the weapon's image
+        self.image = original_image
+        #self.image.fill((255, 0, 0))  # Fill with red color
         
         # placement
         if direction == 'right':

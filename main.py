@@ -5,6 +5,8 @@ from debug import *
 import os
 import cProfile
 
+
+
 class Game:
 	def __init__(self):
 		  
@@ -48,7 +50,9 @@ class Game:
 			
 			# Draw the vignette over the screen
 			self.screen.blit(self.vignette, (0, 0))
-			self.level.ui.display(self.level.player)   
+
+			self.level.ui.display(self.level.player)
+			
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
