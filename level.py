@@ -8,6 +8,109 @@ import random
 from weapon import Weapon
 from ui import UI
 from enemy import Enemy
+import numpy as np
+from scipy.spatial import Delaunay
+import networkx as nx
+
+def create_delaunay_triangulation(rooms):
+	points = np.array([(room.rect.centerx, room.rect.centery) for room in rooms])
+	return Delaunay(points)
+
+def create_mst(triangles):
+	edges = set()
+	for simplex in triangles.simplices:
+		edges.add((simplex[0], simplex[1]))
+		edges.add((simplex[1], simplex[2]))
+		edges.add((simplex[2], simplex[0]))
+
+	G = nx.Graph(list(edges))
+	return nx.minimum_spanning_tree(G)
+
+def add_extra_edges_to_mst(mst, delaunay_tri, percentage=0.05):
+	# Extract edges from Delaunay triangulation
+	delaunay_edges = set()
+	for simplex in delaunay_tri.simplices:
+		delaunay_edges.add((simplex[0], simplex[1]))
+		delaunay_edges.add((simplex[1], simplex[2]))
+		delaunay_edges.add((simplex[0], simplex[2]))
+
+	# Calculate additional edges not in the MST
+	additional_edges = delaunay_edges - set(mst.edges)
+	extra_edges = random.sample(additional_edges, k=int(len(additional_edges) * percentage))
+	mst.add_edges_from(extra_edges)
+
+def get_room_center(room):
+	return (room.x + room.width // 2, room.y + room.height // 2)
+
+def connect_rooms_with_corridor(dungeon_layout, room1, room2):
+	x1, y1 = get_room_center(room1)
+	x2, y2 = get_room_center(room2)
+
+	# Horizontal corridor
+	for x in range(min(x1, x2), max(x1, x2) + 1):
+		dungeon_layout[y1][x], dungeon_layout[y1+1][x], dungeon_layout[y1+2][x] = ' ', ' ', ' '
+
+	# Vertical corridor
+	for y in range(min(y1, y2), max(y1, y2) + 1):
+		dungeon_layout[y][x2], dungeon_layout[y][x2+1], dungeon_layout[y][x2+2] = ' ', ' ', ' '
+
+def build_corridors_from_mst(mst, dungeon_layout, rooms):
+	for edge in mst.edges():
+		room1 = rooms[edge[0]]
+		room2 = rooms[edge[1]]
+		connect_rooms_with_corridor(dungeon_layout, room1, room2)
+
+class Cell:
+	def __init__(self, x, y, width, height):
+		self.rect = pygame.Rect(x, y, width, height)
+
+def generate_cells(number_of_cells, map_width, map_height, buffer=SAFETY_MARGIN):
+	cells = []
+	for _ in range(number_of_cells):
+		width = int(np.random.normal(loc=10, scale=3))
+		height = int(np.random.normal(loc=10, scale=3))
+		# Ensure cells are within bounds considering their dimensions
+		x = np.random.randint(buffer, map_width - width - buffer)
+		y = np.random.randint(buffer, map_height - height - buffer)
+		cells.append(Cell(x, y, width, height))
+	return cells
+
+def separate_cells(cells, max_iterations=10000):
+	moved = True
+	iteration_count = 0
+
+	while moved and iteration_count < max_iterations:
+		moved = False
+		for i, cell_a in enumerate(cells):
+			for cell_b in cells[i+1:]:
+				if cell_a.rect.colliderect(cell_b.rect):
+					moved = True
+					# Calculate overlap
+					dx = min(cell_a.rect.right - cell_b.rect.left, cell_b.rect.right - cell_a.rect.left)
+					dy = min(cell_a.rect.bottom - cell_b.rect.top, cell_b.rect.bottom - cell_a.rect.top)
+
+					# Determine push direction
+					if dx < dy:
+						push_x = dx / 2
+						cell_a.rect.x -= push_x
+						cell_b.rect.x += push_x
+					else:
+						push_y = dy / 2
+						cell_a.rect.y -= push_y
+						cell_b.rect.y += push_y
+
+		iteration_count += 1
+
+	if iteration_count >= max_iterations:
+		print("Warning: separate_cells reached maximum iterations")
+
+def select_rooms(cells, min_size, map_width, map_height, buffer=SAFETY_MARGIN):
+	return [Room(cell.rect.x, cell.rect.y, cell.rect.width, cell.rect.height)
+			for cell in cells
+			if cell.rect.width > min_size and cell.rect.height > min_size
+			and cell.rect.right < map_width - buffer  # Adjusted
+			and cell.rect.bottom < map_height - buffer]  # Adjusted
+
 
 class Room:
 	def __init__(self, x, y, width, height):
@@ -16,14 +119,16 @@ class Room:
 		self.y = y
 		self.width = width
 		self.height = height
+		# Create a pygame.Rect object for the room
+		self.rect = pygame.Rect(x, y, width, height)
 		
 	def create_room(self, dungeon_layout):
-		# Fill the defined area of the dungeon map with open space
 		for x in range(self.x, self.x + self.width):
 			for y in range(self.y, self.y + self.height):
-	   			if dungeon_layout[y][x] != ' ':  # Avoid overwriting corridors
-		   				dungeon_layout[y][x] = ' '
-
+				# Check bounds before accessing the dungeon layout
+				if 0 <= x < len(dungeon_layout[0]) and 0 <= y < len(dungeon_layout):
+					if dungeon_layout[y][x] != ' ':  # Avoid overwriting corridors
+						dungeon_layout[y][x] = ' '
 
 class Level:
 	corridor_width = 4
@@ -232,6 +337,7 @@ class Level:
 						placed = True
 
 	def create_map(self):
+		print("Starting map creation")
 		# Procedural map generation
 		self.generate_procedural_map()
 		enemy_types = self.enemy_types
@@ -276,7 +382,7 @@ class Level:
 					player_created = True
 			if self.player is None:
 				print("Player was not created!")
-     
+	 
 		for row_index, row in enumerate(self.object_layout):
 			for col_index, cell in enumerate(row):
 				x = col_index * TILESIZE
@@ -294,9 +400,9 @@ class Level:
 					# Create the enemy if a name was assigned
 					if enemy_name:
 						Enemy(enemy_name, 
-            				(x, y), 
-                			[self.visible_sprites, self.attackable_sprites, self.enemy_sprites], 
-                   			self.obstacle_sprites)
+							(x, y), 
+							[self.visible_sprites, self.attackable_sprites, self.enemy_sprites], 
+				   			self.obstacle_sprites)
 						print(f'{enemy_name} enemy rendered at position:', x, y)
 		
   		# Additional code for door creation
@@ -312,12 +418,17 @@ class Level:
 				bottom_row_ok = all(self.dungeon_layout[door_bottom_row_y][max(0, door_x + i)] == ' ' for i in range(4))
 				one_row_above_ok = all(self.dungeon_layout[door_bottom_row_y - 1][max(0, door_x + i)] == ' ' for i in range(4))
 				two_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 2][max(0, door_x + i)] == 'x' for i in range(4))
+				three_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 3][max(0, door_x + i)] == 'x' for i in range(4))
+				four_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 4][max(0, door_x + i)] == 'x' for i in range(4))
 
-				if bottom_row_ok and one_row_above_ok and two_rows_above_ok:
+				if bottom_row_ok and one_row_above_ok and two_rows_above_ok and three_rows_above_ok and four_rows_above_ok:
 					self.create_door(door_x * TILESIZE, (door_bottom_row_y - 3) * TILESIZE)
-				
+		
+  
+  		# Debugging: Print the dungeon layout
 		for row in self.dungeon_layout:
 			print(''.join(row))
+		print("Map creation completed")
 
 	def create_door(self, x, y):
 		door_width, door_height = 4, 4
@@ -332,10 +443,6 @@ class Level:
 				tile_coords = (i, j)
 				door_pos = (x + i * TILESIZE, y + j * TILESIZE)
 				Tile(door_pos, self.visible_sprites, None, 'doors', tile_coords, 'door')
-
-		# Debugging: Print the dungeon layout
-		for row in self.dungeon_layout:
-			print(''.join(row))
 
 	def create_attack(self):
 		self.current_attack = Weapon(self.player, [self.visible_sprites, self.attack_sprites])
@@ -379,36 +486,47 @@ class Level:
 		return None, None  # Return None if no valid position is found
 
 	def generate_procedural_map(self):
-		# Always create the first room and place the player inside it
-		first_room = Room(random.randint(1, MAP_WIDTH - 20), random.randint(1, MAP_HEIGHT - 20), random.randint(10, 15), random.randint(10, 15))
-		self.add_room(first_room, self.corridor_width)
+		# Generate and separate cells
+		cells = generate_cells(25, MAP_WIDTH, MAP_HEIGHT)
+		separate_cells(cells)
 
-		# Find the center position within the first room for the player
+		# Convert cells to rooms and add to self.rooms
+		self.rooms = select_rooms(cells, min_size=8, map_width=MAP_WIDTH, map_height=MAP_HEIGHT)
+
+		# Fill rooms in the dungeon layout
+		for room in self.rooms:
+			print(f'Room rendered at position:', room.x, room.y)
+			room.create_room(self.dungeon_layout)
+			
+
+		# Step 3: Construct MST and corridors
+		delaunay_tri = create_delaunay_triangulation(self.rooms)
+		mst = create_mst(delaunay_tri)
+		add_extra_edges_to_mst(mst, delaunay_tri, percentage=0.15)  # Adjust percentage as needed
+		build_corridors_from_mst(mst, self.dungeon_layout, self.rooms)
+
+		# Place the player in the first room
+		first_room = self.rooms[0]  # Select the first room
 		player_x, player_y = self.find_valid_player_position(first_room)
 		if player_x is not None and player_y is not None:
 			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack, self.create_magic)
-			#print(f"Player created at: {(player_x, player_y)}")
 		else:
 			print("Failed to place the player in a valid position")
 
-		# Generate additional rooms and connect them
-		for i in range(1, 25):  # Start from 1 since the first room is already created
-			room = Room(random.randint(1, MAP_WIDTH - 10), random.randint(1, MAP_HEIGHT - 10), random.randint(8, 20), random.randint(8, 20))
-			if self.add_room(room, self.corridor_width):
-				self.connect_to_closest_room(room)  # Connect the room to the closest one
-		
-		
-		print('map generated')
-
+		# Populate the dungeon with objects
 		self.populate_objects()
+  
+		# Fix single-tile-thick walls
+		self.fix_single_tile_walls(self.dungeon_layout)
 
-		print('objects generated')
-		
+		print('Map and objects generated')
+	
 	def add_room(self, room, corridor_width):
-		# Check if room overlaps with existing rooms or is too close to the edges.
+		# Adjusted to consider buffer margin
 		overlap = False
+		buffer = SAFETY_MARGIN  # Define buffer margin
+		corridor_and_wall_space = corridor_width + 1
 
-		corridor_and_wall_space = corridor_width + 1  # Add 1 for wall thickness
 		for r in self.rooms:
 			if (room.x < r.x + r.width + corridor_and_wall_space and
 				room.x + room.width + corridor_and_wall_space > r.x and
@@ -417,11 +535,11 @@ class Level:
 				overlap = True
 				break
 
-		# Check if room is too close to the edges
-		too_close_to_edge = (room.x < SAFETY_MARGIN or 
-								room.y < SAFETY_MARGIN or 
-								room.x + room.width > MAP_WIDTH - SAFETY_MARGIN or 
-								room.y + room.height > MAP_HEIGHT - SAFETY_MARGIN)
+		# Check if room is too close to the edges considering buffer
+		too_close_to_edge = (room.x < buffer or 
+							room.y < buffer or 
+							room.x + room.width + corridor_width > MAP_WIDTH - buffer or 
+							room.y + room.height + corridor_width > MAP_HEIGHT - buffer)
 		
 		if not overlap and not too_close_to_edge:
 			room.create_room(self.dungeon_layout)
@@ -473,6 +591,23 @@ class Level:
 			return not (in_room1 and in_room2)
 		else:
 			return not (in_room1 or in_room2)
+
+	def fix_single_tile_walls(self, dungeon_layout):
+		height = MAP_HEIGHT
+		width = MAP_WIDTH
+
+		for y in range(1, height - 1):
+			for x in range(1, width - 1):
+				if dungeon_layout[y][x] == 'x':
+					# Check adjacent tiles
+					left = dungeon_layout[y][x - 1]
+					right = dungeon_layout[y][x + 1]
+					up = dungeon_layout[y - 1][x]
+					down = dungeon_layout[y + 1][x]
+
+					# Convert to ' ' if surrounded by ' ' on opposite sides
+					if (left == ' ' and right == ' ') or (up == ' ' and down == ' '):
+						dungeon_layout[y][x] = ' '
 
 	def run(self):
 		# update and draw the game

@@ -28,8 +28,8 @@ ENERGY_COLOR = 'blue'
 UI_BORDER_COLOR_ACTIVE = 'gold'
 
 # Define the size of the map
-MAP_WIDTH = 70
-MAP_HEIGHT = 70
+MAP_WIDTH = 80
+MAP_HEIGHT = 80
 
 # Define Player setup
 PLAYER_WIDTH = 40

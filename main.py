@@ -2,10 +2,6 @@ import pygame, sys
 from settings import *
 from level import Level
 from debug import *
-import os
-import cProfile
-
-
 
 class Game:
 	def __init__(self):
@@ -15,7 +11,7 @@ class Game:
 		self.screen = pygame.display.set_mode((WIDTH,HEIGHT))
 		pygame.display.set_caption('Veiled Hollow')
 		self.clock = pygame.time.Clock()
-		self.vignette = self.create_vignette_surface((WIDTH, HEIGHT))
+		#self.vignette = self.create_vignette_surface((WIDTH, HEIGHT))
 		self.level = Level()
 
 	def create_vignette_surface(self, screen_size, intensity=400):
@@ -31,13 +27,6 @@ class Game:
 				vignette_surface.set_at((x, y), (0, 0, 0, alpha))
 
 		return vignette_surface
-		for sprite in group:
-			if hasattr(sprite, 'hitbox'):
-				# If the sprite has a hitbox attribute, draw a box around it
-				pygame.draw.rect(screen, color, sprite.hitbox, 1)  # 1 is the width of the box border
-			else:
-				# Otherwise, draw a box around the sprite's rect
-				pygame.draw.rect(screen, color, sprite.rect, 1)
 
 	def run(self):
 		while True:
@@ -49,15 +38,15 @@ class Game:
 			self.level.run()
 			
 			# Draw the vignette over the screen
-			self.screen.blit(self.vignette, (0, 0))
+			#self.screen.blit(self.vignette, (0, 0))
 
-			self.level.ui.display(self.level.player)
+			self.level.ui.display(self.level.player)  
 			
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
 
 if __name__ == '__main__':
-	game = Game()
- 
-	game.run()
+    game = Game()
+
+    game.run()
