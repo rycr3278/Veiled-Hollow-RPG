@@ -48,11 +48,13 @@ def connect_rooms_with_corridor(dungeon_layout, room1, room2):
 
 	# Horizontal corridor
 	for x in range(min(x1, x2), max(x1, x2) + 1):
-		dungeon_layout[y1][x], dungeon_layout[y1+1][x], dungeon_layout[y1+2][x] = ' ', ' ', ' '
+		for i in range(0, CORRIDOR_WIDTH):
+			dungeon_layout[y1 + i][x] = ' '
 
 	# Vertical corridor
 	for y in range(min(y1, y2), max(y1, y2) + 1):
-		dungeon_layout[y][x2], dungeon_layout[y][x2+1], dungeon_layout[y][x2+2] = ' ', ' ', ' '
+		for i in range(0, CORRIDOR_WIDTH):
+			dungeon_layout[y][x2 + i] = ' '
 
 def build_corridors_from_mst(mst, dungeon_layout, rooms):
 	for edge in mst.edges():
@@ -131,7 +133,6 @@ class Room:
 						dungeon_layout[y][x] = ' '
 
 class Level:
-	corridor_width = 4
 	enemy_types = ['S', 'W', 'K', 'B']  # Different types of enemies
 	
 	def __init__(self):
@@ -338,74 +339,17 @@ class Level:
 
 	def create_map(self):
 		print("Starting map creation")
-		# Procedural map generation
 		self.generate_procedural_map()
-		enemy_types = self.enemy_types
+		self.place_tiles_and_enemies()
+		self.fix_border_and_walls(self.dungeon_layout)
+		self.place_doors()
 		
-		player_created = False
-		for row_index, row in enumerate(self.dungeon_layout):
-			for col_index, col in enumerate(row):
-				x = col_index * TILESIZE
-				y = row_index * TILESIZE
+		print('Map and objects generated')
+		for row in self.dungeon_layout:
+			print(''.join(row))
 
-				# Handle base tile
-				tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)
-				if tile_type:
-					obstacle_group = self.obstacle_sprites if tile_type == 'wall' or tile_type == 'overlay' or tile_type == 'corner' else None
-					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
-
-				# Handle overlay tile
-				overlay_tile = self.get_overlay_tile(self.dungeon_layout, row_index, col_index)
-	
-				if overlay_tile:
-					tile_type, tile_coords, edge_type, is_obstacle = overlay_tile
-					obstacle_group = self.obstacle_sprites if is_obstacle else None
-					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
-
-				# Handle corner tile
-				corner_tile = self.get_corner_tile(self.dungeon_layout, row_index, col_index)
-	
-				if corner_tile:
-					tile_type, tile_coords, edge_type, is_obstacle = corner_tile
-					obstacle_group = self.obstacle_sprites if is_obstacle else None
-					Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
-
-				# Player creation logic
-				if col == 'p' and not player_created:
-					self.player = Player(
-		 			(x, y), 
-					[self.visible_sprites], 
-			  		self.obstacle_sprites, 
-					self.create_attack, 
-				 	self.destroy_attack,
-				  	self.create_magic)
-					player_created = True
-			if self.player is None:
-				print("Player was not created!")
-	 
-		for row_index, row in enumerate(self.object_layout):
-			for col_index, cell in enumerate(row):
-				x = col_index * TILESIZE
-				y = row_index * TILESIZE
-				if cell in enemy_types:
-					enemy_name = None
-					if cell == 'S':
-						enemy_name = 'Spider/1'
-					elif cell == 'W':
-						enemy_name = 'Worm/1'
-					elif cell == 'K':
-						enemy_name = 'Skeleton/1'
-					elif cell == 'B':
-						enemy_name = 'Worm/2'
-					# Create the enemy if a name was assigned
-					if enemy_name:
-						Enemy(enemy_name, 
-							(x, y), 
-							[self.visible_sprites, self.attackable_sprites, self.enemy_sprites], 
-				   			self.obstacle_sprites)
-						print(f'{enemy_name} enemy rendered at position:', x, y)
-		
-  		# Additional code for door creation
+	def place_doors(self):
+		# Additional code for door creation
 		for room in self.rooms:
 			central_x = room.x + room.width // 2
 			door_bottom_row_y = room.y + 1
@@ -423,12 +367,84 @@ class Level:
 
 				if bottom_row_ok and one_row_above_ok and two_rows_above_ok and three_rows_above_ok and four_rows_above_ok:
 					self.create_door(door_x * TILESIZE, (door_bottom_row_y - 3) * TILESIZE)
-		
-  
-  		# Debugging: Print the dungeon layout
-		for row in self.dungeon_layout:
-			print(''.join(row))
-		print("Map creation completed")
+
+	def place_tiles_and_enemies(self):
+		player_created = False
+		for row_index, row in enumerate(self.dungeon_layout):
+			for col_index, cell in enumerate(row):
+				self.place_tile(row_index, col_index)
+				self.try_place_player(cell, row_index, col_index, player_created)
+		self.place_enemies()
+
+	def place_tile(self, row_index, col_index):
+		x, y = col_index * TILESIZE, row_index * TILESIZE
+		tile_type, tile_coords, edge_type = self.get_tile_type(self.dungeon_layout, row_index, col_index)
+		if tile_type:
+			obstacle_group = self.obstacle_sprites if tile_type in ['wall', 'overlay', 'corner'] else None
+			Tile((x, y), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
+			self.try_place_overlay_or_corner_tile(row_index, col_index)
+
+	def try_place_overlay_or_corner_tile(self, row_index, col_index):
+		overlay_tile = self.get_overlay_tile(self.dungeon_layout, row_index, col_index)
+		if overlay_tile:
+			tile_type, tile_coords, edge_type, is_obstacle = overlay_tile
+			obstacle_group = self.obstacle_sprites if is_obstacle else None
+			Tile((col_index * TILESIZE, row_index * TILESIZE), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
+		corner_tile = self.get_corner_tile(self.dungeon_layout, row_index, col_index)
+		if corner_tile:
+			tile_type, tile_coords, edge_type, is_obstacle = corner_tile
+			obstacle_group = self.obstacle_sprites if is_obstacle else None
+			Tile((col_index * TILESIZE, row_index * TILESIZE), self.visible_sprites, obstacle_group, tile_type, tile_coords, tile_type, edge_type)
+
+	def try_place_player(self, cell, row_index, col_index, player_created_flag):
+		x, y = col_index * TILESIZE, row_index * TILESIZE
+		if cell == 'p' and not player_created_flag:
+			self.player = Player((x, y), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack, self.create_magic)
+			player_created_flag = True
+		if self.player is None:
+			print("Player was not created!")
+
+	def place_enemies(self):
+		for room in self.rooms:
+			# Calculate inner area bounds to place enemies
+			start_x = max(room.x + 3, 3)
+			end_x = min(room.x + room.width - 3, MAP_WIDTH - 3)
+			start_y = max(room.y + 3, 3)
+			end_y = min(room.y + room.height - 3, MAP_HEIGHT - 3)
+
+			# Place enemies randomly in rooms, ensuring they are away from walls
+			for _ in range(random.randint(1, 2)):  # Random number of enemies
+				placed = False
+				attempts = 0
+				while not placed and attempts < 10:
+					attempts += 1
+					enemy_x = random.randint(start_x, end_x)
+					enemy_y = random.randint(start_y, end_y)
+
+					if self.is_valid_enemy_position(enemy_x, enemy_y):
+						enemy_type = random.choice(self.enemy_types)  # Randomly choose an enemy type
+						self.create_enemy(enemy_type, enemy_x, enemy_y)
+						placed = True
+
+	def is_valid_enemy_position(self, x, y):
+		# Check if the position is suitable for placing an enemy
+		for i in range(-3, 4):  # Check in a 7x7 grid centered on the position
+			for j in range(-3, 4):
+				if self.dungeon_layout[y + j][x + i] != ' ':
+					return False
+		return True
+
+	def create_enemy(self, enemy_type, col_index, row_index):
+		x, y = col_index * TILESIZE, row_index * TILESIZE
+		enemy_name = {
+			'S': 'Spider/1',
+			'W': 'Worm/1',
+			'K': 'Skeleton/1',
+			'B': 'Worm/2'
+		}.get(enemy_type)
+		if enemy_name:
+			Enemy(enemy_name, (x, y), [self.visible_sprites, self.attackable_sprites, self.enemy_sprites], self.obstacle_sprites)
+			print(f'{enemy_name} enemy rendered at position:', x, y)
 
 	def create_door(self, x, y):
 		door_width, door_height = 4, 4
@@ -517,7 +533,7 @@ class Level:
 		self.populate_objects()
   
 		# Fix single-tile-thick walls
-		self.fix_single_tile_walls(self.dungeon_layout)
+		self.fix_border_and_walls(self.dungeon_layout)
 
 		print('Map and objects generated')
 	
@@ -592,12 +608,21 @@ class Level:
 		else:
 			return not (in_room1 or in_room2)
 
-	def fix_single_tile_walls(self, dungeon_layout):
+	def fix_border_and_walls(self, dungeon_layout):
 		height = MAP_HEIGHT
 		width = MAP_WIDTH
+		border_thickness = 3  # Number of tiles for the border
 
-		for y in range(1, height - 1):
-			for x in range(1, width - 1):
+		# Add a border of 'x' tiles around the map
+		for y in range(height):
+			for x in range(width):
+				if y < border_thickness or y >= height - border_thickness or \
+				x < border_thickness or x >= width - border_thickness:
+					dungeon_layout[y][x] = 'x'
+
+		# Fix single-tile-thick walls inside the map, skipping the border area
+		for y in range(border_thickness, height - border_thickness):
+			for x in range(border_thickness, width - border_thickness):
 				if dungeon_layout[y][x] == 'x':
 					# Check adjacent tiles
 					left = dungeon_layout[y][x - 1]
@@ -658,5 +683,6 @@ class YSortCameraGroup(pygame.sprite.Group):
 	def enemy_update(self, player):
 		enemy_sprites = [sprite for sprite in self.sprites() if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy']
 		for enemy in enemy_sprites:
+			
 			enemy.enemy_update(player)
 		

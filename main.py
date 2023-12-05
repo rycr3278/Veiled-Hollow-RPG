@@ -41,12 +41,12 @@ class Game:
 			#self.screen.blit(self.vignette, (0, 0))
 
 			self.level.ui.display(self.level.player)  
-			
+   
 			pygame.display.update()
 			
 			self.clock.tick(FPS)
 
 if __name__ == '__main__':
-    game = Game()
+	game = Game()
 
-    game.run()
+	game.run()

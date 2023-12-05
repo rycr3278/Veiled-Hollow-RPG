@@ -58,7 +58,7 @@ class Enemy(Entity):
         
         # Movement
         self.rect = self.image.get_rect(topleft = pos)
-        self.hitbox = self.rect.inflate(-50, -10)
+        self.hitbox = self.rect.inflate(-10, -10)
         self.obstacle_sprites = obstacle_sprites
         
         # Stats
@@ -136,7 +136,7 @@ class Enemy(Entity):
         current_time = pygame.time.get_ticks()
         
         # Check if the enemy is a worm and if its status is 'waiting'
-        if self.monster_type in ['Worm', 'BigWorm'] and (self.status == 'waiting' or self.status == 'death' or (self.status == 'attack' and self.frame_index <= 14)):
+        if self.monster_type in ['Worm', 'BigWorm'] and (self.status == 'waiting' or self.status == 'death' or (self.status == 'attack' and self.frame_index <= 14) or (self.status == 'retreat' and self.frame_index >= 14)):
             # If the status is 'waiting', do not proceed with taking damage
             return
         
