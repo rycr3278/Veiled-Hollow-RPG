@@ -23,3 +23,7 @@ class Weapon(pygame.sprite.Sprite):
             self.rect = self.image.get_rect(center = player.rect.midtop + pygame.math.Vector2(16,0))
         else:
             self.rect = self.image.get_rect(center = player.rect.midbottom - pygame.math.Vector2(16,0))
+         
+         # Define the hitbox
+        self.hitbox = self.rect 
+

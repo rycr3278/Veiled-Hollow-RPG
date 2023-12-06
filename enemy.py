@@ -13,9 +13,9 @@ class Enemy(Entity):
     
     enemy_frame_data = {
         'Spider': {'frame_size' : (64,64), 'hitbox_scale': 0.6, 'hitbox_offset': (0, 0), 'walk': 8, 'attack': 12, 'death': 17, 'idle': 8, 'hurt' : 6, 'final_death' : 1},
-        'Worm': {'frame_size' : (128, 128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
-        'Skeleton': {'frame_size' : (128,128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'walk': 8, 'attack': 17, 'death': 13, 'idle': 7, 'hurt' : 11, 'final_death' : 1},
-        'BigWorm': {'frame_size' : (128, 128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
+        'Worm': {'frame_size' : (128, 128), 'hitbox_scale': 0.3, 'hitbox_offset': (0, 10), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
+        'Skeleton': {'frame_size' : (128,128), 'hitbox_scale': 0.3, 'hitbox_offset': (0, 10), 'walk': 8, 'attack': 17, 'death': 13, 'idle': 7, 'hurt' : 11, 'final_death' : 1},
+        'BigWorm': {'frame_size' : (128, 128), 'hitbox_scale': 0.3, 'hitbox_offset': (0, 10), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
     }
 
     def __init__(self, monster_name, pos, groups, obstacle_sprites):
@@ -52,6 +52,8 @@ class Enemy(Entity):
         self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(topleft=pos)
         
+        print(f"{self.monster_type} {self.id} Image Position: {self.rect.topleft}")
+        
         # Animation setup
         self.last_update = pygame.time.get_ticks()
         
@@ -63,7 +65,9 @@ class Enemy(Entity):
         hitbox_height = int(frame_height * hitbox_scale_factor)
         self.hitbox = pygame.Rect(0, 0, hitbox_width, hitbox_height)
         self.hitbox.center = (self.rect.centerx + hitbox_x_offset, self.rect.centery + hitbox_y_offset)
-
+        
+        print(f"{self.monster_type} {self.id} Hitbox Position: {self.hitbox.topleft}")
+        
         self.obstacle_sprites = obstacle_sprites
         
         # Stats
@@ -308,6 +312,7 @@ class Enemy(Entity):
             else:
                 self.image = pygame.transform.flip(self.animations['final_death'][0], True, False)  # Flip if needed
 
+            
         self.cooldowns()
         self.check_death()
         
@@ -316,6 +321,7 @@ class Enemy(Entity):
         if self.status not in ['final_death', 'death']:
             self.get_status(player)
             self.actions(player)
+            
             
         self.check_death()
         

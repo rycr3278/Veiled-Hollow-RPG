@@ -159,6 +159,8 @@ class Level:
 
 		# list of rooms
 		self.rooms = []
+  
+		self.starting_room = None
 
 		# attack sprites
 		self.current_attack = None
@@ -320,6 +322,8 @@ class Level:
 	def populate_objects(self):
 		enemy_types = self.enemy_types
 		for room in self.rooms:
+			if room == self.starting_room:
+				continue
 			# Place an item in the center of each room
 			center_x, center_y = room.x + room.width // 2, room.y + room.height // 2
 			if self.dungeon_layout[center_y][center_x] == ' ':
@@ -416,7 +420,7 @@ class Level:
 			for _ in range(random.randint(1, 2)):  # Random number of enemies
 				placed = False
 				attempts = 0
-				while not placed and attempts < 10:
+				while not placed and attempts < 10 and room != self.starting_room:
 					attempts += 1
 					enemy_x = random.randint(start_x, end_x)
 					enemy_y = random.randint(start_y, end_y)
@@ -514,7 +518,6 @@ class Level:
 			print(f'Room rendered at position:', room.x, room.y)
 			room.create_room(self.dungeon_layout)
 			
-
 		# Step 3: Construct MST and corridors
 		delaunay_tri = create_delaunay_triangulation(self.rooms)
 		mst = create_mst(delaunay_tri)
@@ -523,6 +526,7 @@ class Level:
 
 		# Place the player in the first room
 		first_room = self.rooms[0]  # Select the first room
+		self.starting_room = first_room
 		player_x, player_y = self.find_valid_player_position(first_room)
 		if player_x is not None and player_y is not None:
 			self.player = Player((player_x * TILESIZE, player_y * TILESIZE), [self.visible_sprites], self.obstacle_sprites, self.create_attack, self.destroy_attack, self.create_magic)
@@ -673,7 +677,6 @@ class YSortCameraGroup(pygame.sprite.Group):
 				if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy':
 					hitbox_pos = sprite.hitbox.topleft - self.offset
 					sprite.draw_hitbox(self.display_surface, hitbox_pos)
-
 
 		# Draw player
 		offset_pos = player.rect.topleft - self.offset

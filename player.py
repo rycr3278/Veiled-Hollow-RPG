@@ -1,6 +1,7 @@
 import pygame 
 from settings import *
 from entity import Entity
+import math
 
 class Player(Entity):
 	def __init__(self,pos,groups,obstacle_sprites, create_attack, destroy_attack, create_magic):
@@ -16,6 +17,8 @@ class Player(Entity):
 		self.attack_cooldown = 50
 		self.status = 'down'
 		self.attack_time = None
+		self.current_frame = 0
+		self.animation_speed = ANIMATION_SPEED
 
 		self.obstacle_sprites = obstacle_sprites
   
@@ -27,8 +30,6 @@ class Player(Entity):
 			'down' : [pygame.transform.scale(pygame.image.load(f'graphics/player/_Warrior/WalkDown/{i}.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha() for i in range(1,5)]
 		}
   
-		
-
 		# Weapon
 		self.create_attack = create_attack
 		self.destroy_attack = destroy_attack
@@ -53,68 +54,70 @@ class Player(Entity):
 		self.speed = self.stats['speed']
 
 	def animate(self):
-		direction_x = self.direction.x
-		direction_y = self.direction.y
+		if self.direction.magnitude() != 0:  # Check if the player is moving
+			# Progress through animation frames only if moving
+			self.current_frame += self.animation_speed
+			if self.current_frame >= len(self.animations[self.status]):
+				self.current_frame = 0
+		else:
+			# If not moving, reset to the first frame
+			self.current_frame = 0
 
-		if direction_x > 0:
-			self.current_frame += self.animation_speed
-			if self.current_frame >= len(self.animations['right']):
-				self.current_frame = 0
-			self.image = self.animations['right'][int(self.current_frame)]
-
-		elif direction_x < 0:
-			self.current_frame += self.animation_speed
-			if self.current_frame >= len(self.animations['left']):
-				self.current_frame = 0
-			self.image = self.animations['left'][int(self.current_frame)]
-
-		elif direction_y < 0:
-			self.current_frame += self.animation_speed
-			if self.current_frame >= len(self.animations['up']):
-				self.current_frame = 0
-			self.image = self.animations['up'][int(self.current_frame)]
-   
-		elif direction_y > 0:
-			self.current_frame += self.animation_speed
-			if self.current_frame >= len(self.animations['down']):
-				self.current_frame = 0
-			self.image = self.animations['down'][int(self.current_frame)]
+		self.image = self.animations[self.status][int(self.current_frame)]
 	
 	def get_full_weapon_damage(self):
 		base_damage = self.stats['attack']
 		weapon_damage = weapon_data[self.weapon]['damage']
 		return base_damage + weapon_damage
  
+	def update_direction_based_on_mouse(self):
+		mouse_x, mouse_y = pygame.mouse.get_pos()
+		screen_center_x = WIDTH // 2
+		screen_center_y = HEIGHT // 2
+
+		# Determine the direction based on the mouse's position relative to the screen's center
+		if mouse_x > screen_center_x:
+			if abs(mouse_x - screen_center_x) > abs(mouse_y - screen_center_y):
+				self.status = 'right'
+			else:
+				self.status = 'up' if mouse_y < screen_center_y else 'down'
+		else:
+			if abs(mouse_x - screen_center_x) > abs(mouse_y - screen_center_y):
+				self.status = 'left'
+			else:
+				self.status = 'up' if mouse_y < screen_center_y else 'down'
+	
 	def input(self):
+		self.update_direction_based_on_mouse()
+
+		# Movement keys
 		keys = pygame.key.get_pressed()
 		if not self.attacking:
 			if keys[pygame.K_w]:
-				self.status = 'up'
 				self.direction.y = -1
 			elif keys[pygame.K_s]:
-				self.status = 'down'
 				self.direction.y = 1
 			else:
 				self.direction.y = 0
 
 			if keys[pygame.K_d]:
-				self.status = 'right'
 				self.direction.x = 1
 			elif keys[pygame.K_a]:
-				self.status = 'left'
 				self.direction.x = -1
 			else:
 				self.direction.x = 0
    
-		# Attack input
-		if keys[pygame.K_SPACE] and not self.attacking:
+		# Attack input (left mouse button)
+		if pygame.mouse.get_pressed()[0] and not self.attacking:
 			self.attacking = True
 			self.attack_time = pygame.time.get_ticks()
 			self.create_attack()
+			print(f'direction while attacking: {self.status}')
+			
 			print('attack')
 
-		# Magic input
-		if keys[pygame.K_LCTRL] and not self.attacking:
+		# Magic input (right mouse button)
+		if pygame.mouse.get_pressed()[2] and not self.attacking:
 			self.attacking = True
 			self.attack_time = pygame.time.get_ticks()
 			style = list(magic_data.keys())[self.magic_index]
@@ -184,15 +187,5 @@ class Player(Entity):
 		self.cooldowns()
 		if not self.attacking:
 			self.move(self.speed)
-	
-		# Animate only when moving
-		if self.direction.magnitude() != 0:
-			self.animate()
-		else:
-			self.current_frame = 0  # Reset animation frame if not moving
-	
-		# Animate only when moving
-		if self.direction.magnitude() != 0:
-			self.animate()
-		else:
-			self.current_frame = 0  # Reset animation frame if not moving
+
+		self.animate()
