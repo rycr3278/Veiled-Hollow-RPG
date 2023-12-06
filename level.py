@@ -669,6 +669,11 @@ class YSortCameraGroup(pygame.sprite.Group):
 			if sprite != player and not (hasattr(sprite, 'edge_type') and sprite.edge_type == 'top'):
 				offset_pos = sprite.rect.topleft - self.offset
 				self.display_surface.blit(sprite.image, offset_pos)
+				# Draw the hitbox for enemy sprites with offset
+				if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy':
+					hitbox_pos = sprite.hitbox.topleft - self.offset
+					sprite.draw_hitbox(self.display_surface, hitbox_pos)
+
 
 		# Draw player
 		offset_pos = player.rect.topleft - self.offset

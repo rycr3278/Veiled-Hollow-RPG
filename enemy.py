@@ -12,10 +12,10 @@ class Enemy(Entity):
     id_counter = 0  # Class variable for keeping track of the number of enemies
     
     enemy_frame_data = {
-        'Spider': {'frame_size' : (64,64), 'walk': 8, 'attack': 12, 'death': 17, 'idle': 8, 'hurt' : 6, 'final_death' : 1},
-        'Worm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
-        'Skeleton': {'frame_size' : (128,128), 'walk': 8, 'attack': 17, 'death': 13, 'idle': 7, 'hurt' : 11, 'final_death' : 1},
-        'BigWorm': {'frame_size' : (128, 128), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
+        'Spider': {'frame_size' : (64,64), 'hitbox_scale': 0.6, 'hitbox_offset': (0, 0), 'walk': 8, 'attack': 12, 'death': 17, 'idle': 8, 'hurt' : 6, 'final_death' : 1},
+        'Worm': {'frame_size' : (128, 128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1},
+        'Skeleton': {'frame_size' : (128,128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'walk': 8, 'attack': 17, 'death': 13, 'idle': 7, 'hurt' : 11, 'final_death' : 1},
+        'BigWorm': {'frame_size' : (128, 128), 'hitbox_scale': 0.4, 'hitbox_offset': (0, 30), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
     }
 
     def __init__(self, monster_name, pos, groups, obstacle_sprites):
@@ -26,19 +26,20 @@ class Enemy(Entity):
         self.facing_right = True
         self.facing_right_at_death = True
         self.attacking = False
+        self.display_surface = pygame.display.get_surface()
 
-        # Determine frame size for this monster type
+        # Determine hitbox size and offset based on enemy type
         enemy_type = monster_name.split('/')[0]
         self.monster_type = enemy_type
-        frame_width, frame_height = self.enemy_frame_data[enemy_type]['frame_size']
+        frame_data = self.enemy_frame_data[enemy_type]
+        frame_width, frame_height = frame_data['frame_size']
+        hitbox_scale_factor = frame_data['hitbox_scale']
+        hitbox_x_offset, hitbox_y_offset = frame_data['hitbox_offset']
 
         # Graphics setup
         self.import_graphics(monster_name)  # Import graphics first
         self.frame_index = 0
         
-        # Debug: Print the monster_name
-        print("Initializing enemy with monster_name:", monster_name)
-
         # Set initial status based on monster type
         if self.monster_type in ['Worm', 'BigWorm']:
             self.status = 'waiting'
@@ -47,18 +48,22 @@ class Enemy(Entity):
             
         self.image = self.animations[self.status][0]
 
-        self.rect = self.image.get_rect(topleft=pos)
-
-        # Set the initial image based on the frame size
-        self.image = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+        # Set initial image and rect
         self.image = self.animations[self.status][self.frame_index]
+        self.rect = self.image.get_rect(topleft=pos)
         
         # Animation setup
         self.last_update = pygame.time.get_ticks()
         
         # Movement
         self.rect = self.image.get_rect(topleft = pos)
-        self.hitbox = self.rect.inflate(-10, -10)
+
+        # Adjust hitbox size and position
+        hitbox_width = int(frame_width * hitbox_scale_factor)
+        hitbox_height = int(frame_height * hitbox_scale_factor)
+        self.hitbox = pygame.Rect(0, 0, hitbox_width, hitbox_height)
+        self.hitbox.center = (self.rect.centerx + hitbox_x_offset, self.rect.centery + hitbox_y_offset)
+
         self.obstacle_sprites = obstacle_sprites
         
         # Stats
@@ -79,6 +84,7 @@ class Enemy(Entity):
         self.vulnerable = True
         self.hit_time = None
         self.invincibility_duration = 500
+
         
     def import_graphics(self, name):
         self.animations = {'walk': [], 'waiting' : [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': [], 'final_death' : []}  # Actions
@@ -284,13 +290,18 @@ class Enemy(Entity):
             elif self.direction.x > 0:
                 self.facing_right = True
 
+    def draw_hitbox(self, surface, hitbox_pos, color=(255, 0, 0), width=2):
+        # Draw a rectangle around the hitbox for debugging
+        pygame.draw.rect(surface, color, (hitbox_pos, self.hitbox.size), width)
+
     def update(self):
         #print(f"update: Current status is {self.status}")
         if self.status != 'final_death':
             if self.status != 'hurt':
-                logging.debug(f"Update Start [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
+                
                 self.move_and_face_direction()  # Handle movement and facing direction
             self.animate()
+            
         else:
             if self.facing_right:
                 self.image = self.animations['final_death'][0]  # Show the final death frame
@@ -299,12 +310,12 @@ class Enemy(Entity):
 
         self.cooldowns()
         self.check_death()
-        logging.debug(f"Update End [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
-
+        
     def enemy_update(self, player):
-        logging.debug(f"Enemy Update Start [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
+        
         if self.status not in ['final_death', 'death']:
             self.get_status(player)
             self.actions(player)
+            
         self.check_death()
-        logging.debug(f"Enemy Update End [ID: {self.id}] - Position: {self.rect.topleft}, Status: {self.status}")
+        

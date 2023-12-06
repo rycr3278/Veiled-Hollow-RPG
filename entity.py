@@ -5,7 +5,7 @@ class Entity(pygame.sprite.Sprite):
 	def __init__(self, groups):
 		super().__init__(groups)
 		self.frame_index = 0
-		self.animation_speed = 0.05
+		self.animation_speed = 0.07
 		self.direction = pygame.math.Vector2()
 		
 	def move(self,speed):
@@ -35,3 +35,5 @@ class Entity(pygame.sprite.Sprite):
 						self.hitbox.bottom = sprite.hitbox.top
 					if self.direction.y < 0: # moving up
 						self.hitbox.top = sprite.hitbox.bottom
+	  
+	
