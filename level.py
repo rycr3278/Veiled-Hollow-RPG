@@ -693,6 +693,12 @@ class YSortCameraGroup(pygame.sprite.Group):
 		offset_pos = player.rect.topleft - self.offset
 		self.display_surface.blit(player.image, offset_pos)
 
+		# Draw the weapon
+		for sprite in sorted(self.sprites(), key=lambda sprite: sprite.rect.centery):
+			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'weapon':
+				weapon_offset_pos = sprite.rect.topleft - self.offset
+				self.display_surface.blit(sprite.image, weapon_offset_pos)
+
 		# Draw top-edge wall tiles last
 		for sprite in self.sprites():
 			if hasattr(sprite, 'edge_type') and sprite.edge_type == 'top':
