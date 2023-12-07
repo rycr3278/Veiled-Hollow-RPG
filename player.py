@@ -22,6 +22,9 @@ class Player(Entity):
 
 		self.obstacle_sprites = obstacle_sprites
   
+		# Initialize last_update for animation timing
+		self.last_update = pygame.time.get_ticks()
+  
 		# Load animation frames
 		self.animations = {
 			'right': [pygame.transform.scale(pygame.image.load(f'graphics/player/_Warrior/WalkRight/{i}.png'), (PLAYER_WIDTH, PLAYER_HEIGHT)).convert_alpha() for i in range(1,5)],
@@ -53,17 +56,18 @@ class Player(Entity):
 		self.exp = 123
 		self.speed = self.stats['speed']
 
+	# Revised player animate method
 	def animate(self):
+		now = pygame.time.get_ticks()
 		if self.direction.magnitude() != 0:  # Check if the player is moving
-			# Progress through animation frames only if moving
-			self.current_frame += self.animation_speed
-			if self.current_frame >= len(self.animations[self.status]):
-				self.current_frame = 0
+			if now - self.last_update >= self.animation_speed * 1000:
+				self.last_update = now
+				self.current_frame = (self.current_frame + 1) % len(self.animations[self.status])
 		else:
-			# If not moving, reset to the first frame
 			self.current_frame = 0
 
 		self.image = self.animations[self.status][int(self.current_frame)]
+
 	
 	def get_full_weapon_damage(self):
 		base_damage = self.stats['attack']

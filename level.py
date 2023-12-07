@@ -507,7 +507,7 @@ class Level:
 
 	def generate_procedural_map(self):
 		# Generate and separate cells
-		cells = generate_cells(25, MAP_WIDTH, MAP_HEIGHT)
+		cells = generate_cells(35, MAP_WIDTH, MAP_HEIGHT)
 		separate_cells(cells)
 
 		# Convert cells to rooms and add to self.rooms
