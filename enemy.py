@@ -21,6 +21,8 @@ def manhattan_distance(a, b):
 		return abs(x1 - x2) + abs(y1 - y2)
 
 
+
+
 class Enemy(Entity):
 	
 	id_counter = 0  # Class variable for keeping track of the number of enemies
@@ -32,7 +34,7 @@ class Enemy(Entity):
 		'BigWorm': {'frame_size' : (128, 128), 'hitbox_scale': 0.3, 'hitbox_offset': (0, 10), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
 	}
 
-	def __init__(self, monster_name, pos, groups, obstacle_sprites, dungeon_layout):
+	def __init__(self, monster_name, pos, groups, obstacle_sprites, dungeon_layout, player):
 		super().__init__(groups)
 		self.id = Enemy.id_counter  # Assign an ID to the enemy
 		Enemy.id_counter += 1  # Increment the counter
@@ -54,11 +56,15 @@ class Enemy(Entity):
 		self.import_graphics(monster_name)  # Import graphics first
 		self.frame_index = 0
 		
+		self.is_wandering = False
+		self.is_pursuing = False
+
 		# Set initial status based on monster type
 		if self.monster_type in ['Worm', 'BigWorm']:
 			self.status = 'waiting'
 		else:
 			self.status = 'idle'
+			self.is_wandering = True
 			
 		self.image = self.animations[self.status][0]
 
@@ -76,7 +82,7 @@ class Enemy(Entity):
 		self.move_timer = 0
 		self.pause_timer = 0
 		self.is_moving = True
-		
+
 		self.random_move_duration = random.randint(1000, 3000)  # Duration for moving
 		self.random_pause_duration = random.randint(1000, 3000)  # Duration for pausing
 
@@ -89,8 +95,6 @@ class Enemy(Entity):
 		hitbox_height = int(frame_height * hitbox_scale_factor)
 		self.hitbox = pygame.Rect(0, 0, hitbox_width, hitbox_height)
 		self.hitbox.center = (self.rect.centerx + hitbox_x_offset, self.rect.centery + hitbox_y_offset)
-		
-		print(f"{self.monster_type} {self.id} Hitbox Position: {self.hitbox.topleft}")
 		
 		self.obstacle_sprites = obstacle_sprites
 		
@@ -107,6 +111,9 @@ class Enemy(Entity):
 		
 		# Player Interaction
 		self.can_attack = True
+		self.player = player
+		self.player_direction = pygame.math.Vector2()
+		self.player_distance = 0
 		
 		# invincibility timer
 		self.vulnerable = True
@@ -120,7 +127,7 @@ class Enemy(Entity):
   
 		# Initialize the path update time tracking
 		self.last_path_update_time = pygame.time.get_ticks()
-		self.path_update_interval = 1000  # set interval in milliseconds, adjust as needed
+		self.path_update_interval = 200  # set interval in milliseconds, adjust as needed
   
 		# Initialize player position tracking variables
 		self.last_player_pos_x, self.last_player_pos_y = pos  # Set to enemy's initial position, or 0,0
@@ -142,7 +149,6 @@ class Enemy(Entity):
 					frame = self.get_image(action_sprite_sheet, x, y, frame_width, frame_height)
 					self.animations[action].append(frame)
 			except KeyError:
-				print('this action does not exist')
 				# This action does not exist for this enemy type, so we skip it
 				pass
    
@@ -166,9 +172,10 @@ class Enemy(Entity):
 				self.image = self.animations[action][self.frame_index]
 				if not self.facing_right:
 					self.image = pygame.transform.flip(self.image, True, False)
-
+     
 				if action == 'hurt' and self.frame_index == len(self.animations['hurt']) - 1:
 					self.status = 'idle'
+					self.is_wandering = True
 
 				if action == 'retreat' and self.frame_index == len(self.animations['retreat']) - 1:
 					self.status = 'waiting'  # Transition back to 'waiting' after 'retreat'
@@ -176,6 +183,8 @@ class Enemy(Entity):
 				# Transition from 'death' to 'final_death'
 				if action == 'death' and self.frame_index == len(self.animations['death']) - 1:
 					self.status = 'final_death'
+					self.is_wandering = False
+					self.is_pursuing = False
 					
 	def get_damage(self, player, attack_type):
 		current_time = pygame.time.get_ticks()
@@ -199,17 +208,14 @@ class Enemy(Entity):
 				self.status = 'death'
 				self.frame_index = 0
 				self.final_death_image = self.animations['final_death'][0]
-				print('self.facing_right: ', self.facing_right)
-				print('self.facing_right_at_death: ', self.facing_right_at_death)
+				self.direction = pygame.math.Vector2()
 				if not self.facing_right:
 					self.final_death_image = pygame.transform.flip(self.final_death_image, True, False)
-				print("Enemy hit: status set to 'death'")
+
 			else:
 				self.status = 'hurt'
 				self.vulnerable = False
 				self.frame_index = 0
-				print(f"get_damage: Enemy hurt, setting status to 'hurt', frame index reset to {self.frame_index}")
-				print(self.status)
 				
 	def cooldowns(self):
 		current_time = pygame.time.get_ticks()
@@ -271,10 +277,20 @@ class Enemy(Entity):
 				return
 			if distance <= self.attack_radius and self.can_attack:
 				self.status = 'attack'
+				self.is_wandering = False
+				self.is_pursuing = True
 			elif distance <= self.notice_radius:
 				self.status = 'walk'
+				self.is_wandering = False
+				self.is_pursuing = True
+			elif self.status == 'attack' and self.frame_index == len(self.animations['attack']) - 1:
+				self.status = 'walk'
+				self.is_wandering = False
+				self.is_pursuing = True
 			else:
-				self.status = 'idle'
+
+				self.is_wandering = True
+				self.is_pursuing = False
 
 	def actions(self, player):
 		if self.status in ['death', 'final_death']:
@@ -288,7 +304,7 @@ class Enemy(Entity):
 			# Handling for other enemy types
 			if self.status in ['hurt', 'attack']:
 				self.direction = pygame.math.Vector2()  # Stop moving when attacking
-			elif self.status == 'walk':
+			elif self.is_pursuing:
 				self.update_direction(player)
 		
 		# Update facing direction
@@ -301,77 +317,46 @@ class Enemy(Entity):
 			_, direction = self.get_player_distance_direction(player)
 			self.direction = direction
 
-	def move_and_face_direction(self):
-		if self.status not in ['attack', 'death', 'final_death']:
-			before_move = f"Before Move [ID: {self.id}]: {self.rect.topleft}"
-			before_moving = f"[ID: {self.id}] Moving - Direction: {self.direction}, Speed: {self.speed}"
-			x_before_move, y_before_move = self.rect.topleft
-			self.move(self.speed)
-			after_move = f"After Move [ID: {self.id}]: {self.rect.topleft}"
-			x_after_move, y_after_move = self.rect.topleft
-			if abs(x_before_move - x_after_move) > 50 or abs(y_before_move - y_after_move) > 50:
-				print('it happened')
-				print(before_move)
-				print(before_moving)
-				print(after_move)
-				print('Status: ', self.status)
-
-			
-			
-			# Update facing direction
-			if self.direction.x < 0:
-				self.facing_right = False
-			elif self.direction.x > 0:
-				self.facing_right = True
-
-	
-		current_time = pygame.time.get_ticks()
-
-		if self.is_moving:
-			if current_time - self.move_timer > self.random_move_duration:
-				self.is_moving = False
-				self.pause_timer = current_time
-				self.direction = pygame.math.Vector2()  # Stop moving
-				self.random_pause_duration = random.randint(1000, 3000)  # Reset pause duration
-		else:
-			if current_time - self.pause_timer > self.random_pause_duration:
-				self.is_moving = True
-				self.move_timer = current_time
-				# Move in a random direction
-				dx, dy = random.choice([-1, 0, 1]), random.choice([-1, 0, 1])
-				if dx != 0 or dy != 0:  # Ensure it's not a zero vector
-					self.direction = pygame.math.Vector2(dx, dy).normalize()
-				else:
-					self.direction = pygame.math.Vector2(dx, dy)  # Keep as zero vector if both dx and dy are 0
-				self.random_move_duration = random.randint(1000, 3000)  # Reset move duration
+	def update_player_info(self, player):
+		self.player_direction = self.get_player_distance_direction(player)[1]
+		self.player_distance = self.get_player_distance_direction(player)[0]
 
 	def draw_hitbox(self, surface, hitbox_pos, color=(255, 0, 0), width=2):
 		# Draw a rectangle around the hitbox for debugging
 		pygame.draw.rect(surface, color, (hitbox_pos, self.hitbox.size), width)
 
-	def reverse_direction(self):
-		self.direction.x *= -1
-		self.direction.y *= -1
-
 	def randomize_movement(self):
 		current_time = pygame.time.get_ticks()
+
+		# If currently moving, check if it's time to stop.
 		if self.is_moving:
-			if current_time - self.move_timer > random.randint(1000, 3000):
+			if current_time - self.move_timer > self.random_move_duration:
 				self.is_moving = False
+				self.status = 'idle'  # Stop the walking animation
+				self.direction = pygame.math.Vector2()  # Stop moving
 				self.pause_timer = current_time
+				self.random_pause_duration = random.randint(1000, 3000)  # Set pause duration
+			else:
+				self.status = 'walk'  # Continue the walking animation
+		# If not currently moving, check if it's time to start.
 		else:
-			if current_time - self.pause_timer > random.randint(1000, 3000):
+			if current_time - self.pause_timer > self.random_pause_duration:
 				self.is_moving = True
 				self.move_timer = current_time
-				self.direction = pygame.math.Vector2(random.choice([-1, 0, 1]), random.choice([-1, 0, 1]))
-				if self.direction.length() > 0:
-					self.direction = self.direction.normalize()
+				self.random_move_duration = random.randint(1000, 3000)  # Set move duration
+				# Choose a random direction
+				dx, dy = random.choice([-1, 0, 1]), random.choice([-1, 0, 1])
+				if dx != 0 or dy != 0:  # Ensure it's not a zero vector
+					self.direction = pygame.math.Vector2(dx, dy).normalize()
+				else:
+					self.direction = pygame.math.Vector2(dx, dy)  # Keep as zero vector if both dx and dy are 0
 
 	def check_collision(self, dx, dy):
 		# Adjust the enemy's position if a collision is detected
 		new_position = pygame.Rect(self.rect.x + dx, self.rect.y + dy, self.rect.width, self.rect.height)
 		for sprite in self.obstacle_sprites:
 			if new_position.colliderect(sprite.rect):
+				logging.debug(f"Enemy {self.id} Collision detected at {new_position}")
 				return False  # Collision detected
 		return True  # No collision
 
@@ -384,30 +369,44 @@ class Enemy(Entity):
 
 		try:
 			# Use NetworkX A* algorithm
-			self.current_path = nx.astar_path(self.dungeon_graph, grid_start, grid_end, heuristic=manhattan_distance)
+			raw_path = nx.astar_path(self.dungeon_graph, grid_start, grid_end, heuristic=manhattan_distance)
+			self.current_path = self.smooth_path(raw_path)
 		except nx.NetworkXNoPath:
 			self.current_path = []  # No path found
 
 	def should_update_path(self, player):
 		# Define conditions for updating the path
-		
 		player_pos = (player.rect.centerx // TILESIZE, player.rect.centery // TILESIZE)
 		last_player_pos = (self.last_player_pos_x // TILESIZE, self.last_player_pos_y // TILESIZE)
-		if player_pos != last_player_pos:
+		if player_pos != last_player_pos and self.is_pursuing:
+			logging.debug(f"Enemy {self.id} recalculating path due to player movement")
 			self.last_player_pos_x, self.last_player_pos_y = player.rect.centerx, player.rect.centery
 			return True
 		return False
 
-	def follow_path(self):
+	def follow_path(self, player):
+		if not self.current_path or self.at_path_end():
+			self.calculate_path(player)
+
 		if self.current_path:
 			next_point = self.current_path[0]
 			next_x, next_y = next_point[0] * TILESIZE, next_point[1] * TILESIZE
 
 			# Move towards the next point
 			if not self.move_towards(next_x, next_y):
-				# Handle the case where the path is blocked
-				self.current_path = []  # Clear the current path
-				# Optionally, recalculate a new path
+				# If blocked or unable to move, use direction towards player
+				distance, direction = self.get_player_distance_direction(player)
+				self.direction = direction
+
+	def at_path_end(self):
+		# Check if the enemy is at the end of the current path
+		if self.current_path:
+			last_point = self.current_path[-1]
+			last_x, last_y = last_point[0] * TILESIZE, last_point[1] * TILESIZE
+			path_end = self.rect.centerx == last_x and self.rect.centery == last_y
+			if path_end:
+				logging.debug(f'Enemy {self.id} at path end')
+		return path_end
 
 	def move_towards(self, target_x, target_y):
 		dx, dy = 0, 0
@@ -425,29 +424,125 @@ class Enemy(Entity):
 		if self.check_collision(dx, dy):
 			self.rect.x += dx
 			self.rect.y += dy
+			
+		logging.debug(f"Enemy {self.id} Moving from {self.rect.topleft} towards ({target_x}, {target_y})")
 
+	def smooth_path(self, path):
+		"""
+		Smooths a path by connecting non-adjacent nodes if there are no obstacles between them.
+		"""
+		if len(path) <= 2:
+			return path
+
+		smooth_path = [path[0]]  # Start with the first node
+		i = 0
+		while i < len(path) - 1:
+			for j in range(len(path) - 1, i, -1):
+				if self.line_of_sight(path[i], path[j]):
+					# Direct path to a further node is possible
+					smooth_path.append(path[j])
+					i = j  # Skip to the node with line of sight
+					break
+			else:
+				# If no direct path, go to the next node in the original path
+				smooth_path.append(path[i + 1])
+				i += 1
+		logging.debug(f"Enemy {self.id} Raw path: {path}")
+		logging.debug(f"Enemy {self.id} Smoothed path: {smooth_path}")
+		return smooth_path
+
+	def line_of_sight(self, start, end):
+		"""
+		Checks if there's a direct line of sight (no obstacles) between two points.
+		"""
+		# Calculate increments or steps for checking
+		steps = max(abs(start[0] - end[0]), abs(start[1] - end[1]))
+		x_step = (end[0] - start[0]) / steps
+		y_step = (end[1] - start[1]) / steps
+
+		for i in range(1, steps):
+			check_x = start[0] + i * x_step
+			check_y = start[1] + i * y_step
+
+			# Check if the position is blocked by an obstacle
+			if self.is_blocked(check_x, check_y):
+				return False
+
+		return True
+
+	def is_blocked(self, x, y):
+		"""
+		Checks if a specific point in the grid is blocked by an obstacle.
+		"""
+		# Convert to tile coordinates and check for obstacles
+		grid_x, grid_y = int(x // TILESIZE), int(y // TILESIZE)
+		blocked = self.dungeon_layout[grid_y][grid_x] != ' '
+  
+		return blocked
+
+	def get_player_distance_direction(self, player):
+		enemy_vec = pygame.math.Vector2(self.rect.center)
+		player_vec = pygame.math.Vector2(player.rect.center)
+		distance = (player_vec - enemy_vec).magnitude()
+		direction = (player_vec - enemy_vec).normalize() if distance > 0 else pygame.math.Vector2()
+		return distance, direction
+
+	def execute_movement(self):
+		
+		if self.is_pursuing and self.current_path:
+			self.follow_path(self.player)
+		elif self.is_wandering:
+			self.randomize_movement()
+
+		# Movement with collision handling
+		dx = self.direction.x * self.speed
+		dy = self.direction.y * self.speed
+		self.move(dx, dy)  # Now call the move method with updated dx and dy
+
+		# Update facing direction
+		if self.direction.x < 0:
+			self.facing_right = False
+		elif self.direction.x > 0:
+			self.facing_right = True
+
+	def move(self, dx, dy):
+		if self.direction.magnitude() != 0:
+			self.direction = self.direction.normalize()
+
+		self.hitbox.x += dx
+		self.collision('horizontal')
+		self.hitbox.y += dy
+		self.collision('vertical')
+		self.rect.center = self.hitbox.center
 
 	def update(self):
-		self.randomize_movement()
-		
-		if self.status not in ['final_death', 'death', 'hurt']:
-			self.follow_path()  # Follow the A* path
-			self.move_and_face_direction()  # Adjust facing direction
+     
+		if self.status in ['death', 'final_death', 'attack', 'hurt']:
+			self.animate()  # Still update animation to ensure death animation plays
+			return
 
-		self.animate()
+		self.update_player_info(self.player)
+		self.actions(self.player)
+		
+		current_time = pygame.time.get_ticks()
+		if self.is_pursuing:
+			if current_time - self.last_path_update_time > self.path_update_interval or self.should_update_path(self.player):
+				self.calculate_path(self.player)
+				self.last_path_update_time = current_time
+	
+		self.execute_movement()		
 		self.cooldowns()
 		self.check_death()
+		self.animate()
 		
 	def enemy_update(self, player):
 		
 		if self.status not in ['final_death', 'death']:
 			self.get_status(player)
 			self.actions(player)
-			current_time = pygame.time.get_ticks()
-			if current_time - self.last_path_update_time > self.path_update_interval or self.should_update_path(player):
-				self.calculate_path(player)
-				self.last_path_update_time = current_time
 			
 			
+		self.check_death()
+
 		self.check_death()
 		

@@ -411,6 +411,8 @@ class Level:
 			print("Player was not created!")
 
 	def place_enemies(self):
+	 
+		enemies_sum = 0
 		for room in self.rooms:
 			# Calculate inner area bounds to place enemies
 			start_x = max(room.x + 3, 3)
@@ -427,10 +429,12 @@ class Level:
 					enemy_x = random.randint(start_x, end_x)
 					enemy_y = random.randint(start_y, end_y)
 
-					if self.is_valid_enemy_position(enemy_x, enemy_y):
-						enemy_type = random.choice(self.enemy_types)  # Randomly choose an enemy type
-						self.create_enemy(enemy_type, enemy_x, enemy_y)
-						placed = True
+					if enemies_sum < 4:
+						if self.is_valid_enemy_position(enemy_x, enemy_y):
+							enemy_type = random.choice(self.enemy_types)  # Randomly choose an enemy type
+							self.create_enemy(enemy_type, enemy_x, enemy_y)
+							enemies_sum += 1
+							placed = True
 
 	def is_valid_enemy_position(self, x, y):
 		# Check if the position is suitable for placing an enemy
@@ -449,7 +453,7 @@ class Level:
 			'B': 'Worm/2'
 		}.get(enemy_type)
 		if enemy_name:
-			Enemy(enemy_name, (x, y), [self.visible_sprites, self.attackable_sprites, self.enemy_sprites], self.obstacle_sprites, self.dungeon_layout)
+			Enemy(enemy_name, (x, y), [self.visible_sprites, self.attackable_sprites, self.enemy_sprites], self.obstacle_sprites, self.dungeon_layout, self.player)
 			print(f'{enemy_name} enemy rendered at position:', x, y)
 
 	def create_door(self, x, y):
@@ -509,7 +513,7 @@ class Level:
 
 	def generate_procedural_map(self):
 		# Generate and separate cells
-		cells = generate_cells(35, MAP_WIDTH, MAP_HEIGHT)
+		cells = generate_cells(15, MAP_WIDTH, MAP_HEIGHT)
 		separate_cells(cells)
 
 		# Convert cells to rooms and add to self.rooms
@@ -670,15 +674,20 @@ class YSortCameraGroup(pygame.sprite.Group):
 		self.offset.x = player.rect.centerx - self.half_width
 		self.offset.y = player.rect.centery - self.half_height
   
-		# Draw all non-player and non-top-edge wall tiles
-		for sprite in self.sprites():
-			if sprite != player and not (hasattr(sprite, 'edge_type') and sprite.edge_type == 'top'):
+		 # Draw all sprites except enemies and top-edge walls
+		for sprite in sorted(self.sprites(), key=lambda sprite: sprite.rect.centery):
+			if sprite != player and not hasattr(sprite, 'sprite_type') and not (hasattr(sprite, 'edge_type') and sprite.edge_type == 'top'):
 				offset_pos = sprite.rect.topleft - self.offset
 				self.display_surface.blit(sprite.image, offset_pos)
-				# Draw the hitbox for enemy sprites with offset
-				if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy':
-					hitbox_pos = sprite.hitbox.topleft - self.offset
-					sprite.draw_hitbox(self.display_surface, hitbox_pos)
+
+		# Now draw enemies
+		for sprite in sorted(self.sprites(), key=lambda sprite: sprite.rect.centery):
+			if hasattr(sprite, 'sprite_type') and sprite.sprite_type == 'enemy':
+				offset_pos = sprite.rect.topleft - self.offset
+				self.display_surface.blit(sprite.image, offset_pos)
+				# Draw the hitbox for enemies
+				hitbox_pos = sprite.hitbox.topleft - self.offset
+				sprite.draw_hitbox(self.display_surface, hitbox_pos)
 
 		# Draw player
 		offset_pos = player.rect.topleft - self.offset
