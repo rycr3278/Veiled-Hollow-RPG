@@ -2,9 +2,23 @@ import pygame
 from settings import *
 from entity import Entity
 import logging
-
+import networkx as nx
 
 logging.basicConfig(filename='game_debug.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
+
+# A* helper functions
+def create_graph_from_layout(dungeon_layout):
+		G = nx.grid_2d_graph(len(dungeon_layout[0]), len(dungeon_layout), create_using=nx.Graph())
+		for y, row in enumerate(dungeon_layout):
+			for x, tile in enumerate(row):
+				if tile != ' ':  # If the tile is not walkable, remove the node
+					G.remove_node((x, y))
+		return G
+
+def manhattan_distance(a, b):
+		(x1, y1) = a
+		(x2, y2) = b
+		return abs(x1 - x2) + abs(y1 - y2)
 
 
 class Enemy(Entity):
@@ -18,7 +32,7 @@ class Enemy(Entity):
 		'BigWorm': {'frame_size' : (128, 128), 'hitbox_scale': 0.3, 'hitbox_offset': (0, 10), 'attack': 29, 'death': 12, 'idle': 8, 'hurt' : 8, 'retreat' : 32, 'final_death' : 1, 'waiting' : 1}
 	}
 
-	def __init__(self, monster_name, pos, groups, obstacle_sprites):
+	def __init__(self, monster_name, pos, groups, obstacle_sprites, dungeon_layout):
 		super().__init__(groups)
 		self.id = Enemy.id_counter  # Assign an ID to the enemy
 		Enemy.id_counter += 1  # Increment the counter
@@ -98,7 +112,19 @@ class Enemy(Entity):
 		self.vulnerable = True
 		self.hit_time = None
 		self.invincibility_duration = 500
-	   
+  
+		# collision variables
+		self.current_path = []  # Store the current A* path
+		self.dungeon_layout = dungeon_layout  # Store a reference to the dungeon layout for pathfinding
+		self.dungeon_graph = create_graph_from_layout(self.dungeon_layout)
+  
+		# Initialize the path update time tracking
+		self.last_path_update_time = pygame.time.get_ticks()
+		self.path_update_interval = 1000  # set interval in milliseconds, adjust as needed
+  
+		# Initialize player position tracking variables
+		self.last_player_pos_x, self.last_player_pos_y = pos  # Set to enemy's initial position, or 0,0
+
 	def import_graphics(self, name):
 		self.animations = {'walk': [], 'waiting' : [], 'hurt': [], 'attack': [], 'death': [], 'idle': [], 'retreat': [], 'final_death' : []}  # Actions
 		
@@ -323,32 +349,9 @@ class Enemy(Entity):
 		# Draw a rectangle around the hitbox for debugging
 		pygame.draw.rect(surface, color, (hitbox_pos, self.hitbox.size), width)
 
-	def move_and_avoid_obstacles(self):
-		# Check for potential collision
-		new_position = self.rect.center + self.direction * self.speed
-		future_hitbox = self.hitbox.copy()
-		future_hitbox.center = new_position
-
-		for sprite in self.obstacle_sprites:
-			if future_hitbox.colliderect(sprite.rect):
-				self.reverse_direction()
-				break
-
-		self.rect.center += self.direction * self.speed
-
 	def reverse_direction(self):
 		self.direction.x *= -1
 		self.direction.y *= -1
-
-	def adjust_direction_away_from_obstacle(self, obstacle_rect):
-		if obstacle_rect.collidepoint(self.rect.midleft):
-			self.direction.x = 1
-		elif obstacle_rect.collidepoint(self.rect.midright):
-			self.direction.x = -1
-		if obstacle_rect.collidepoint(self.rect.midtop):
-			self.direction.y = 1
-		elif obstacle_rect.collidepoint(self.rect.midbottom):
-			self.direction.y = -1
 
 	def randomize_movement(self):
 		current_time = pygame.time.get_ticks()
@@ -364,20 +367,74 @@ class Enemy(Entity):
 				if self.direction.length() > 0:
 					self.direction = self.direction.normalize()
 
+	def check_collision(self, dx, dy):
+		# Adjust the enemy's position if a collision is detected
+		new_position = pygame.Rect(self.rect.x + dx, self.rect.y + dy, self.rect.width, self.rect.height)
+		for sprite in self.obstacle_sprites:
+			if new_position.colliderect(sprite.rect):
+				return False  # Collision detected
+		return True  # No collision
+
+# A* algo implementation
+
+	def calculate_path(self, target):
+		# Convert positions to grid coordinates
+		grid_start = (self.rect.centerx // TILESIZE, self.rect.centery // TILESIZE)
+		grid_end = (target.rect.centerx // TILESIZE, target.rect.centery // TILESIZE)
+
+		try:
+			# Use NetworkX A* algorithm
+			self.current_path = nx.astar_path(self.dungeon_graph, grid_start, grid_end, heuristic=manhattan_distance)
+		except nx.NetworkXNoPath:
+			self.current_path = []  # No path found
+
+	def should_update_path(self, player):
+		# Define conditions for updating the path
+		
+		player_pos = (player.rect.centerx // TILESIZE, player.rect.centery // TILESIZE)
+		last_player_pos = (self.last_player_pos_x // TILESIZE, self.last_player_pos_y // TILESIZE)
+		if player_pos != last_player_pos:
+			self.last_player_pos_x, self.last_player_pos_y = player.rect.centerx, player.rect.centery
+			return True
+		return False
+
+	def follow_path(self):
+		if self.current_path:
+			next_point = self.current_path[0]
+			next_x, next_y = next_point[0] * TILESIZE, next_point[1] * TILESIZE
+
+			# Move towards the next point
+			if not self.move_towards(next_x, next_y):
+				# Handle the case where the path is blocked
+				self.current_path = []  # Clear the current path
+				# Optionally, recalculate a new path
+
+	def move_towards(self, target_x, target_y):
+		dx, dy = 0, 0
+		if self.rect.centerx < target_x:
+			dx = self.speed
+		elif self.rect.centerx > target_x:
+			dx = -self.speed
+
+		if self.rect.centery < target_y:
+			dy = self.speed
+		elif self.rect.centery > target_y:
+			dy = -self.speed
+
+		# Check for collision
+		if self.check_collision(dx, dy):
+			self.rect.x += dx
+			self.rect.y += dy
+
+
 	def update(self):
 		self.randomize_movement()
 		
-		if self.status != 'final_death':
-			if self.status != 'hurt':
-				self.move_and_face_direction()  # Handle movement and facing direction
-			self.animate()
-			
-		else:
-			if self.facing_right:
-				self.image = self.animations['final_death'][0]  # Show the final death frame
-			else:
-				self.image = pygame.transform.flip(self.animations['final_death'][0], True, False)  # Flip if needed
+		if self.status not in ['final_death', 'death', 'hurt']:
+			self.follow_path()  # Follow the A* path
+			self.move_and_face_direction()  # Adjust facing direction
 
+		self.animate()
 		self.cooldowns()
 		self.check_death()
 		
@@ -386,6 +443,10 @@ class Enemy(Entity):
 		if self.status not in ['final_death', 'death']:
 			self.get_status(player)
 			self.actions(player)
+			current_time = pygame.time.get_ticks()
+			if current_time - self.last_path_update_time > self.path_update_interval or self.should_update_path(player):
+				self.calculate_path(player)
+				self.last_path_update_time = current_time
 			
 			
 		self.check_death()

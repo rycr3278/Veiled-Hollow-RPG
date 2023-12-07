@@ -353,6 +353,7 @@ class Level:
 			print(''.join(row))
 
 	def place_doors(self):
+		door_sum = 0
 		# Additional code for door creation
 		for room in self.rooms:
 			central_x = room.x + room.width // 2
@@ -369,8 +370,9 @@ class Level:
 				three_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 3][max(0, door_x + i)] == 'x' for i in range(4))
 				four_rows_above_ok = all(self.dungeon_layout[door_bottom_row_y - 4][max(0, door_x + i)] == 'x' for i in range(4))
 
-				if bottom_row_ok and one_row_above_ok and two_rows_above_ok and three_rows_above_ok and four_rows_above_ok:
+				if bottom_row_ok and one_row_above_ok and two_rows_above_ok and three_rows_above_ok and four_rows_above_ok and door_sum <=3:
 					self.create_door(door_x * TILESIZE, (door_bottom_row_y - 3) * TILESIZE)
+					door_sum += 1
 
 	def place_tiles_and_enemies(self):
 		player_created = False
@@ -447,7 +449,7 @@ class Level:
 			'B': 'Worm/2'
 		}.get(enemy_type)
 		if enemy_name:
-			Enemy(enemy_name, (x, y), [self.visible_sprites, self.attackable_sprites, self.enemy_sprites], self.obstacle_sprites)
+			Enemy(enemy_name, (x, y), [self.visible_sprites, self.attackable_sprites, self.enemy_sprites], self.obstacle_sprites, self.dungeon_layout)
 			print(f'{enemy_name} enemy rendered at position:', x, y)
 
 	def create_door(self, x, y):
